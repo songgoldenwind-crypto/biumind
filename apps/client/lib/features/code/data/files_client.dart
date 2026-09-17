@@ -252,6 +252,24 @@ class FilesClient {
     }
   }
 
+  /// 换临时下载 URL（15 分钟）。任务结果区手机拿走产物走这条。
+  Future<String> presignGet(String fileId) async {
+    final url = baseUrl.replace(path: '/v1/files/$fileId/presign-get');
+    final resp = await http.post(
+      url,
+      headers: {'Authorization': 'Bearer $bearerToken'},
+    );
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw FilesApiError(resp.statusCode, resp.body);
+    }
+    final j = jsonDecode(resp.body) as Map<String, dynamic>;
+    final signed = j['url']?.toString() ?? '';
+    if (signed.isEmpty) {
+      throw FilesApiError(resp.statusCode, 'empty url');
+    }
+    return signed;
+  }
+
   /// 流式下载到本地 file. 返回写入字节数。
   /// 失败抛 FilesApiError。
   Future<int> downloadToFile({

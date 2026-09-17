@@ -12,10 +12,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appTitle => 'BiuMind';
 
   @override
-  String get navChat => 'Chat';
+  String get navChat => 'Tasks';
 
   @override
-  String get navWiki => 'Wiki';
+  String get navWiki => 'Knowledge';
 
   @override
   String get navGraph => 'Graph';
@@ -1180,13 +1180,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'What do you want to do today? Pick a starter, or ';
 
   @override
-  String get chatV2HeroNewBlank => 'new blank conversation';
+  String get chatV2HeroNewBlank => 'new task';
 
   @override
   String get chatV2HeroSkillsLabel => 'My skills';
 
   @override
-  String get chatV2HeroRecentLabel => 'Recent conversations';
+  String get chatV2HeroRecentLabel => 'Recent tasks';
 
   @override
   String get chatV2HeroRecentModelsLabel => 'Recent models';
@@ -1329,13 +1329,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatV2ComposerModelRefresh => 'Refresh model list';
 
   @override
-  String get chatV2NewThreadFallback => 'New conversation';
+  String get chatV2NewThreadFallback => 'New task';
 
   @override
-  String get chatV2SidebarTitle => 'Conversations';
+  String get chatV2SidebarTitle => 'Tasks';
 
   @override
-  String get chatV2SidebarFilterHint => 'Filter conversations…';
+  String get chatV2SidebarFilterHint => 'Filter tasks…';
 
   @override
   String get chatV2SidebarPaletteTooltip => 'Command palette (Cmd/Ctrl+K)';
@@ -1350,7 +1350,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatV2SidebarImportTooltip => 'Import JSON';
 
   @override
-  String get chatV2SidebarNewTooltip => 'New conversation';
+  String get chatV2SidebarNewTooltip => 'New task';
 
   @override
   String get chatV2SidebarSectionPinned => 'Pinned';
@@ -1359,11 +1359,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatV2SidebarSectionOthers => 'Others';
 
   @override
-  String get chatV2SidebarEmptyNew =>
-      'No conversations yet\nClick + above to start';
+  String get chatV2SidebarEmptyNew => 'No tasks yet\nTap + to dispatch one';
 
   @override
-  String get chatV2SidebarEmptyFiltered => 'No matching conversations';
+  String get chatV2SidebarEmptyFiltered => 'No matching tasks';
 
   @override
   String chatV2SidebarArchivedFooter(Object count) {
@@ -1451,10 +1450,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chatV2PaletteGroupSwitch => 'Switch conversation';
 
   @override
-  String get chatV2PaletteNewThread => 'New conversation';
+  String get chatV2PaletteNewThread => 'New task';
 
   @override
-  String get chatV2PaletteNewThreadHint => 'Open new conversation wizard';
+  String get chatV2PaletteNewThreadHint => 'Pick mode, computer, and context';
 
   @override
   String get chatV2PaletteCrossSearch => 'Search all conversations';
@@ -1570,10 +1569,11 @@ class AppLocalizationsEn extends AppLocalizations {
       '\"You are a…\" — leave blank for default';
 
   @override
-  String get chatV2NewDialogPickWorker => 'Pick worker';
+  String get chatV2NewDialogPickWorker => 'Pick an online computer';
 
   @override
-  String get chatV2NewDialogNoOnlineDaemon => 'No online daemon';
+  String get chatV2NewDialogNoOnlineDaemon =>
+      'No online computer. Open desktop BiuMind, or switch to a cloud task.';
 
   @override
   String get chatV2NewDialogEmptyEnvAuto =>
@@ -2729,6 +2729,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navCreation => 'Create';
 
   @override
+  String get navApps => 'Apps';
+
+  @override
   String get navProfile => 'Me';
 
   @override
@@ -3110,4 +3113,209 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get permWikiWrite =>
       'Write to your Wiki (limited to this app\'s namespace).';
+
+  @override
+  String get taskFilterAll => 'All';
+
+  @override
+  String get taskFilterRunning => 'Running';
+
+  @override
+  String get taskFilterAwaiting => 'Needs you';
+
+  @override
+  String get taskAwaitingWrite => 'Wants to write a file';
+
+  @override
+  String get taskFilterCompleted => 'Done';
+
+  @override
+  String get taskFilterFailed => 'Failed';
+
+  @override
+  String get taskStatusQueued => 'Queued';
+
+  @override
+  String get taskResultTitle => 'Results';
+
+  @override
+  String get taskResultArtifacts => 'Artifacts';
+
+  @override
+  String get taskResultFiles => 'Files';
+
+  @override
+  String get taskResultChanges => 'Changes';
+
+  @override
+  String get taskResultPreview => 'Preview';
+
+  @override
+  String get taskResultEmpty =>
+      'No deliverables yet. Files and reports show up here when the agent writes them.';
+
+  @override
+  String get taskResultPreviewUnavailable =>
+      'Binary Office preview lands in a later client build. Path and excerpt are below.';
+
+  @override
+  String get taskPhoneHint => 'Dispatch a task, or tap + to pick a computer.';
+
+  @override
+  String get taskDispatchHint => 'One-line task…';
+
+  @override
+  String get taskDispatchSend => 'Send';
+
+  @override
+  String get taskDispatchOptions => 'Options';
+
+  @override
+  String get taskPcOffline => 'Computer offline';
+
+  @override
+  String get taskPcOfflineHint =>
+      'Computer is offline. Open desktop BiuMind, or create a cloud task instead.';
+
+  @override
+  String get taskSwitchCloud => 'Use cloud task';
+
+  @override
+  String get officeKindPpt => 'Slides';
+
+  @override
+  String get officeKindSheet => 'Spreadsheet';
+
+  @override
+  String get officeKindPdf => 'PDF';
+
+  @override
+  String get officeKindResearch => 'Research brief';
+
+  @override
+  String get officeKindBatch => 'File pack';
+
+  @override
+  String get officeKindMarkdown => 'Markdown';
+
+  @override
+  String get officeKindWiki => 'Wiki page';
+
+  @override
+  String get officeKindFile => 'File';
+
+  @override
+  String get taskRunStyleExecute => 'Execute now';
+
+  @override
+  String get taskRunStylePlanFirst => 'Plan first';
+
+  @override
+  String get taskRunStylePlanFirstHint =>
+      'Write a step-by-step plan and wait for you before changing files.';
+
+  @override
+  String get taskResultDownload => 'Download';
+
+  @override
+  String get taskResultOpenLocal => 'Open on this computer';
+
+  @override
+  String taskResultOnComputer(String path) {
+    return 'File is on the computer: $path';
+  }
+
+  @override
+  String get taskResultNotSynced =>
+      'Not synced to cloud. Keep the computer path.';
+
+  @override
+  String get taskWorkdirMissing => 'No folder authorized';
+
+  @override
+  String get taskExecutorPc => 'Computer';
+
+  @override
+  String get taskExecutorCloud => 'Cloud';
+
+  @override
+  String get taskExecutorChat => 'Chat';
+
+  @override
+  String get taskComposerFollowUp => 'Add a follow-up for this task…';
+
+  @override
+  String get taskHomeSubtitle =>
+      'Keep desktop BiuMind running. You can close the phone after dispatching; it is still the same task.';
+
+  @override
+  String get taskComputerOnline => 'Computer online';
+
+  @override
+  String get taskComputerOffline => 'Computer offline';
+
+  @override
+  String taskComputerOnlineNamed(String name) {
+    return 'Computer online · $name';
+  }
+
+  @override
+  String get taskRecent => 'Recent tasks';
+
+  @override
+  String get taskStartersTitle => 'Common tasks';
+
+  @override
+  String get taskEmptyThreadHint =>
+      'Write the request. The agent will leave an openable file in the authorized folder.';
+
+  @override
+  String get chatV2NewDialogWorkdir => 'Working folder';
+
+  @override
+  String get chatV2NewDialogWorkdirHint =>
+      'Folder the computer agent may write to';
+
+  @override
+  String get taskKindLabel => 'Task type';
+
+  @override
+  String get taskKindGeneral => 'General';
+
+  @override
+  String get taskKindOffice => 'Office';
+
+  @override
+  String get taskKindCode => 'Code';
+
+  @override
+  String taskApprovalWritePath(String path) {
+    return 'Will write: $path';
+  }
+
+  @override
+  String get taskSpawnExpert => 'Spawn an expert from this task';
+
+  @override
+  String get taskSpawnExpertHint =>
+      'Creates a child task under this one with a different system prompt.';
+
+  @override
+  String get taskSpawnExpertRole => 'Expert role';
+
+  @override
+  String get taskSpawnExpertRoleHint =>
+      'e.g. legal, proofreader, data wrangler';
+
+  @override
+  String get taskSpawnExpertSubmit => 'Spawn';
+
+  @override
+  String get profileOpenSearch => 'Search';
+
+  @override
+  String get profileOpenNotes => 'Notes';
+
+  @override
+  String get profileOpenCode => 'Code workbench';
 }

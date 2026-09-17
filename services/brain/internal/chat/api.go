@@ -4,6 +4,8 @@
 //	POST   /v1/threads                          create
 //	GET    /v1/threads/{id}                     get one
 //	PATCH  /v1/threads/{id}                     rename / pin / archive / model
+//	POST   /v1/threads/{id}/task-artifacts      merge metadata.task.artifacts
+//	POST   /v1/threads/{id}/task-meta           merge metadata.task.kind / run_style
 //	DELETE /v1/threads/{id}                     hard delete (CASCADE messages)
 //
 //	GET    /v1/threads/{id}/messages            list (position-cursor)
@@ -71,6 +73,8 @@ func (s *Server) Mount(mux *http.ServeMux) {
 	mux.HandleFunc("POST   /v1/threads", s.requireAuth(s.handleCreateThread))
 	mux.HandleFunc("GET    /v1/threads/{id}", s.requireAuth(s.handleGetThread))
 	mux.HandleFunc("PATCH  /v1/threads/{id}", s.requireAuth(s.handleUpdateThread))
+	mux.HandleFunc("POST   /v1/threads/{id}/task-artifacts", s.requireAuth(s.handlePostTaskArtifacts))
+	mux.HandleFunc("POST   /v1/threads/{id}/task-meta", s.requireAuth(s.handlePostTaskMeta))
 	mux.HandleFunc("DELETE /v1/threads/{id}", s.requireAuth(s.handleDeleteThread))
 
 	// Messages
@@ -402,6 +406,71 @@ func (s *Server) handleUpdateThread(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, threadOut(t))
 }
 
+type postTaskArtifactsReq struct {
+	Artifacts []TaskArtifactMeta `json:"artifacts"`
+}
+
+func (s *Server) handlePostTaskArtifacts(w http.ResponseWriter, r *http.Request) {
+	uid := mustUserID(r)
+	tid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id", "")
+		return
+	}
+	var req postTaskArtifactsReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	if err := s.Store.RecordTaskArtifacts(r.Context(), uid, tid, req.Artifacts); err != nil {
+		writeErr(w, http.StatusInternalServerError, "update_failed", err.Error())
+		return
+	}
+	t, err := s.Store.GetThread(r.Context(), uid, tid)
+	if errors.Is(err, ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, threadOut(t))
+}
+
+type postTaskMetaReq struct {
+	Kind     string `json:"kind"`
+	RunStyle string `json:"run_style"`
+}
+
+func (s *Server) handlePostTaskMeta(w http.ResponseWriter, r *http.Request) {
+	uid := mustUserID(r)
+	tid, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_id", "")
+		return
+	}
+	var req postTaskMetaReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	if err := s.Store.RecordTaskMeta(r.Context(), uid, tid, req.Kind, req.RunStyle); err != nil {
+		writeErr(w, http.StatusInternalServerError, "update_failed", err.Error())
+		return
+	}
+	t, err := s.Store.GetThread(r.Context(), uid, tid)
+	if errors.Is(err, ErrNotFound) {
+		writeErr(w, http.StatusNotFound, "not_found", "")
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "internal", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, threadOut(t))
+}
+
 func (s *Server) handleDeleteThread(w http.ResponseWriter, r *http.Request) {
 	uid := mustUserID(r)
 	tid, err := uuid.Parse(r.PathValue("id"))
@@ -705,6 +774,9 @@ func threadOut(t *Thread) map[string]any {
 	// check is a clean signal of "use defaults".
 	if mp := parseThreadModelParams(t.Metadata); mp.hasAny() {
 		out["model_params"] = mp
+	}
+	if task := ParseThreadTask(t.Metadata); task.hasAny() {
+		out["task"] = task
 	}
 	return out
 }

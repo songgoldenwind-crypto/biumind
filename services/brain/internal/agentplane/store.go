@@ -341,6 +341,31 @@ func (s *Store) GetSession(ctx context.Context, userID, sessionID uuid.UUID) (*S
 	return &sess, nil
 }
 
+// GetSessionByID 按 session 主键取行（不校验 user）。FrameObserver 热路径
+// 只有 session_id，用它找回 thread_id / user_id 再发跨设备事件。
+func (s *Store) GetSessionByID(ctx context.Context, sessionID uuid.UUID) (*Session, error) {
+	const q = `
+		SELECT session_id, user_id, environment_id, thread_id, mode, state,
+		       COALESCE(model, ''), COALESCE(system_prompt, ''), runtime_env_mode, backend,
+		       created_at, updated_at
+		  FROM agent_sessions
+		 WHERE session_id = $1
+	`
+	var sess Session
+	err := s.pool.QueryRow(ctx, q, sessionID).Scan(
+		&sess.SessionID, &sess.UserID, &sess.EnvironmentID, &sess.ThreadID,
+		&sess.Mode, &sess.State, &sess.Model, &sess.SystemPrompt, &sess.RuntimeEnvMode, &sess.Backend,
+		&sess.CreatedAt, &sess.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get session by id: %w", err)
+	}
+	return &sess, nil
+}
+
 // PickRuntimeEnvironment 从 runtime 池里选一个 online environment。Task 模式
 // 调度用 —— 调用方可指定 poolTag 限制（"runtime-prod" / "runtime-gpu"），
 // 空字符串则不限。

@@ -22,7 +22,7 @@ import 'dart:async';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,13 +43,16 @@ import '../../../../services/token_manager.dart'
     show ConnectivityState, connectivityStateProvider;
 import '../../application/attachments_provider.dart';
 import '../../application/chat_controller.dart';
+import '../../application/chat_preferences.dart';
 import '../../application/composer_draft_store.dart';
 import '../../application/draft_history_controller.dart';
 import '../../application/web_search_provider.dart';
+import '../../domain/task_workdir.dart';
 import '../../data/chat_image_compressor.dart';
 import '../../domain/chat_models.dart'
     show AttachmentInput, AutoApproveMode, ThreadMode;
 import '../../domain/slash_commands.dart';
+import '../../domain/task_list_row.dart';
 import '../../domain/token_estimate.dart';
 import 'attachment_chip.dart';
 import 'estimate_chip.dart';
@@ -592,6 +595,19 @@ class _ComposerV2State extends ConsumerState<ComposerV2> {
 
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context)!;
+    final thread = widget.threadId == null
+        ? null
+        : ref.watch(threadProvider(widget.threadId!)).valueOrNull;
+    final hint = switch (taskComposerHint(
+      cancelling: widget.cancelling,
+      streaming: widget.streaming,
+      mode: thread?.mode,
+    )) {
+      TaskComposerHint.stopping => l.chatV2ComposerStopping,
+      TaskComposerHint.streaming => l.chatV2ComposerHintStreaming,
+      TaskComposerHint.followUp => l.taskComposerFollowUp,
+      TaskComposerHint.ask => l.chatV2ComposerHint,
+    };
     final parsed = parseSlash(_liveText);
     final showSlash =
         parsed != null &&
@@ -710,11 +726,7 @@ class _ComposerV2State extends ConsumerState<ComposerV2> {
                   // 行高压到 1.5 让多行输入不局促。
                   style: theme.textTheme.bodyLarge?.copyWith(height: 1.5),
                   decoration: InputDecoration(
-                    hintText: widget.cancelling
-                        ? l.chatV2ComposerStopping
-                        : widget.streaming
-                        ? l.chatV2ComposerHintStreaming
-                        : l.chatV2ComposerHint,
+                    hintText: hint,
                     hintStyle: theme.textTheme.bodyLarge?.copyWith(
                       height: 1.5,
                       color: cs.onSurfaceVariant.withValues(alpha: 0.55),
@@ -1339,7 +1351,7 @@ class _WorkdirChipInline extends ConsumerWidget {
     final hasDir = workdir != null && workdir.isNotEmpty;
     final shortLabel = hasDir
         ? _tailPath(workdir)
-        : l.chatV2ComposerWorkdirNone;
+        : l.taskWorkdirMissing;
 
     return GestureDetector(
       onLongPress: hasDir
@@ -1356,7 +1368,12 @@ class _WorkdirChipInline extends ConsumerWidget {
             : l.chatV2ComposerWorkdirSet,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
-          onTap: () async {
+          onTap: !canPickComputerWorkdir(
+                isWeb: kIsWeb,
+                platform: defaultTargetPlatform,
+              )
+              ? null
+              : () async {
             final picked = await getDirectoryPath();
             if (picked == null || !context.mounted) return;
             // 选目录即显式授权 —— 把它加入本机 daemon 的允许根(D7 安全地板),
@@ -1368,6 +1385,11 @@ class _WorkdirChipInline extends ConsumerWidget {
                 .read(chatControllerDepsProvider)
                 .repo
                 .setThreadWorkdir(threadId, picked);
+            if (picked.isNotEmpty) {
+              await ref
+                  .read(chatPreferencesProvider.notifier)
+                  .setLastAgentWorkdir(picked);
+            }
           },
           child: _ChipShell(icon: Icons.folder_outlined, label: shortLabel),
         ),

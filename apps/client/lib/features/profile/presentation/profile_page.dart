@@ -1,38 +1,23 @@
-// ProfilePage — 移动端底部 tab 5「我的」落地页 (R1.3)。
-//
-// 账户中心: 顶部账户卡 (头像 / 邮箱 / 积分) + 功能入口列表 (会员 / 订单 /
-// 兑换码 / 邀请 / 设备 / 技能 / 设置 / 反馈)。把散落的账户性低频功能收口
-// 到一个入口, 设置降为子项 (不再独占 tab 5)。
-//
-// 设计: docs/BiuMind-Mobile-Redesign-Design.md §4.3
-//
-// 仅手机形态 (tab 5 = /profile); 桌面 sidebar 无此入口, build 开头 fallback
-// 到 SettingsPage 防御手动深链 (Web URL bar)。
-//
-// l10n: 同 R1.1 决策, 本轮不碰 l10n 系统 (of() nullable 迁移 + arb 补 key
-// 是独立债), 入口 label 暂硬编码中文。
+// ProfilePage — 「我的」：账户卡 + 低频入口（搜索 / 笔记 / 编码走这里，
+// 主栏只留 任务 / 知识 / 创作 / 应用 / 我的）。
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../settings/presentation/sign_out_dialog.dart';
 
 import '../../../app/theme.dart';
-import '../../../core/layout/form_factor.dart';
 import '../../../core/layout/phone_nav.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../creation/application/credits_controller.dart';
 import '../../creation/data/credits_client.dart';
 import '../../settings/application/settings_controller.dart';
-import '../../settings/presentation/settings_page.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 桌面防御: sidebar 不会到 /profile, 但 Web URL bar 可能手动深链;
-    // fallback 到设置页, 避免桌面渲染一个手机形态的「我的」页。
-    if (!isPhoneLayout(context)) return const SettingsPage();
-
+    final l = AppLocalizations.of(context)!;
     final email =
         ref.watch(settingsControllerProvider).valueOrNull?.userEmail ?? '';
     final credits = ref.watch(creditsBalanceProvider).valueOrNull;
@@ -71,6 +56,22 @@ class ProfilePage extends ConsumerWidget {
                     icon: Icons.group_add_outlined,
                     label: '邀请奖励',
                     onTap: () => enterSubPage(context, '/membership/referrals'),
+                  ),
+                  const _SectionHeader('工作台'),
+                  _Entry(
+                    icon: Icons.search_outlined,
+                    label: l.profileOpenSearch,
+                    onTap: () => enterSubPage(context, '/search'),
+                  ),
+                  _Entry(
+                    icon: Icons.note_outlined,
+                    label: l.profileOpenNotes,
+                    onTap: () => enterSubPage(context, '/notes'),
+                  ),
+                  _Entry(
+                    icon: Icons.terminal_rounded,
+                    label: l.profileOpenCode,
+                    onTap: () => enterSubPage(context, '/code'),
                   ),
                   const _SectionHeader('设备与技能'),
                   _Entry(

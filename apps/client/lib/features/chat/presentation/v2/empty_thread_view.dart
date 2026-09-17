@@ -8,8 +8,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../l10n/app_localizations.dart';
 import '../../application/draft_history_controller.dart';
 import '../../domain/greeting.dart';
+import '../../domain/task_starters.dart';
 
 class EmptyThreadViewV2 extends ConsumerWidget {
   const EmptyThreadViewV2({super.key});
@@ -17,10 +19,10 @@ class EmptyThreadViewV2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context)!;
     final hour = DateTime.now().hour;
     final greeting = greetingForHour(hour);
-    // 取前 4 张起点；不重复 Hero 全部 6 个（紧凑型）。
-    final starters = kStarterPrompts.take(4).toList(growable: false);
+    final starters = kTaskStarters;
     // 键盘顶起 / 矮屏时纵向可滚, 不再硬 Center 导致溢出 (方案 §4.4)。
     return LayoutBuilder(
       builder: (ctx, c) => SingleChildScrollView(
@@ -43,7 +45,7 @@ class EmptyThreadViewV2 extends ConsumerWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '挑一个起点开始，或者直接输入你想问的',
+                      l.taskEmptyThreadHint,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

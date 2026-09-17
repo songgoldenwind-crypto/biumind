@@ -25,6 +25,7 @@ class StarterPrompt {
     required this.title,
     required this.prompt,
     required this.tone,
+    this.kind = 'general',
   });
 
   final IconData icon;
@@ -34,6 +35,8 @@ class StarterPrompt {
   final String prompt;
   /// 卡片图标颜色 hint
   final Color tone;
+  /// metadata.task.kind：办公起点卡写 office。
+  final String kind;
 }
 
 const kStarterPrompts = <StarterPrompt>[

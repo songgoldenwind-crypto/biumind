@@ -22,8 +22,13 @@ import '../../../../l10n/app_localizations.dart';
 import '../../application/chat_controller.dart';
 import '../../application/in_thread_search_controller.dart';
 import '../../application/selection_mode_controller.dart';
+import '../../application/task_activity.dart';
 import '../../domain/chat_models.dart';
 import '../../domain/slash_commands.dart';
+import '../../domain/task_list_row.dart';
+import '../../domain/task_status.dart';
+import 'spawn_expert_dialog.dart';
+import 'task_list_tile.dart';
 import 'approval_card.dart';
 import 'composer_v2.dart';
 import 'context_window_bar.dart';
@@ -34,6 +39,7 @@ import 'message_list_v2.dart';
 import 'model_picker_dialog.dart';
 import 'new_thread_dialog.dart';
 import 'selection_action_bar.dart';
+import 'task_result_pane.dart';
 import 'thread_settings_sheet.dart';
 
 class ChatPageV2 extends ConsumerWidget {
@@ -42,6 +48,7 @@ class ChatPageV2 extends ConsumerWidget {
     required this.threadId,
     this.userName,
     this.onBack,
+    this.onOpenThread,
   });
 
   final String threadId;
@@ -49,6 +56,7 @@ class ChatPageV2 extends ConsumerWidget {
 
   /// 手机形态 (列表↔会话两级): 返回会话列表。桌面 null = 无返回按钮。
   final VoidCallback? onBack;
+  final ValueChanged<String>? onOpenThread;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -113,6 +121,34 @@ class ChatPageV2 extends ConsumerWidget {
               tooltip: l.chatV2AppBarSearchTooltip,
               onPressed: () =>
                   ref.read(inThreadSearchProvider(threadId).notifier).open(),
+            ),
+            IconButton(
+              icon: Icon(
+                phone ? Icons.inventory_2_outlined : Icons.view_sidebar_outlined,
+                size: 20,
+              ),
+              tooltip: l.taskResultTitle,
+              onPressed: () {
+                if (phone) {
+                  showTaskResultSheet(context, threadId: threadId);
+                } else {
+                  final cur = ref.read(taskResultPaneOpenProvider(threadId));
+                  ref.read(taskResultPaneOpenProvider(threadId).notifier).state =
+                      !cur;
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.person_add_alt_1_outlined, size: 20),
+              tooltip: l.taskSpawnExpert,
+              onPressed: () async {
+                final id = await showSpawnExpertDialog(
+                  context,
+                  ref: ref,
+                  parentThreadId: threadId,
+                );
+                if (id != null) onOpenThread?.call(id);
+              },
             ),
             // 低频动作收进 ⋮ (右上角极简): pin / 多选 / 会话设置 / 快捷键面板。
             // pin 功能跟 sidebar 右键 pin 同源。手机端本就不提供后三项。
@@ -215,6 +251,7 @@ class ChatPageV2 extends ConsumerWidget {
             controllerAsync: controllerAsync,
             notifier: notifier,
             searchOpen: searchOpen,
+            phone: phone,
           ),
         ),
       ),
@@ -233,8 +270,9 @@ class ChatPageV2 extends ConsumerWidget {
     required AsyncValue controllerAsync,
     required ChatController notifier,
     required bool searchOpen,
+    required bool phone,
   }) {
-    return Column(
+    final column = Column(
       children: [
         if (lastError != null)
           _ErrorBanner(
@@ -282,10 +320,23 @@ class ChatPageV2 extends ConsumerWidget {
         ),
       ],
     );
+    if (phone) return column;
+    final paneOpen = ref.watch(taskResultPaneOpenProvider(threadId));
+    if (!paneOpen) return column;
+    return Row(
+      children: [
+        Expanded(child: column),
+        const VerticalDivider(width: 1),
+        SizedBox(
+          width: 300,
+          child: TaskResultPane(threadId: threadId),
+        ),
+      ],
+    );
   }
 }
 
-class _ThreadTitle extends StatelessWidget {
+class _ThreadTitle extends ConsumerWidget {
   const _ThreadTitle({
     this.thread,
     this.threadId,
@@ -298,17 +349,44 @@ class _ThreadTitle extends StatelessWidget {
   final bool isCancelling;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context)!;
     final t = thread;
     final title = t == null
         ? l.chatV2SidebarTitle
         : (t.title.isEmpty ? l.chatV2NewThreadFallback : t.title);
+    TaskListRowModel? row;
+    if (t != null && threadId != null) {
+      final overlay = ref.watch(taskListOverlayProvider);
+      final tool = ref.watch(taskActivityProvider).attentionTools[threadId];
+      row = buildTaskListRowModel(
+        status: deriveTaskStatus(
+          threadId!,
+          overlay,
+          lastStatus: t.lastTaskStatus,
+        ),
+        mode: t.mode,
+        attentionTool: tool,
+      );
+    }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (row != null) ...[
+          TaskStatusChip(model: row, label: taskRowStatusLabel(l, row)),
+          const SizedBox(width: 8),
+        ],
         Flexible(child: Text(title, overflow: TextOverflow.ellipsis)),
+        if (row != null) ...[
+          const SizedBox(width: 8),
+          Text(
+            taskExecutorLabel(l, row.executor),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         if (isStreaming || isCancelling) ...[
           const SizedBox(width: 8),
           SizedBox(
@@ -464,7 +542,11 @@ class _ErrorBanner extends StatelessWidget {
                   ),
                 ),
                 child: Text(
-                  action == ChatErrorAction.upgradePlan ? '升级会员' : '重新选择模型',
+                  action == ChatErrorAction.upgradePlan
+                      ? '升级会员'
+                      : action == ChatErrorAction.switchToCloudTask
+                          ? '改用云端任务'
+                          : '重新选择模型',
                 ),
               ),
             ],
@@ -495,6 +577,9 @@ Future<void> _onErrorAction(
       await _showModelPickerDialog(context, ref, threadId);
     case ChatErrorAction.upgradePlan:
       if (context.mounted) context.go('/membership');
+    case ChatErrorAction.switchToCloudTask:
+      final repo = ref.read(chatControllerDepsProvider).repo;
+      await repo.switchToCloudTask(threadId);
     case ChatErrorAction.none:
       return;
   }

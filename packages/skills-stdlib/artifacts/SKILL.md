@@ -24,7 +24,7 @@ and inspect / refine the artefact independently.
 ## When to stay inline
 
   - Code snippets shorter than ~30 lines → inline markdown ```fence
-  - Documents / articles / explanations → markdown text
+  - Documents / articles / explanations → markdown text **or** office-docs skill when the user wants a file
   - Trivial answers / math / one-shot replies
   - Meta-commentary about an artefact (e.g. "I'd change the colour to…")
   - Streaming partial content (artefacts render once finalised)

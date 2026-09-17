@@ -15,13 +15,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../../settings/presentation/settings_page.dart'
     show SettingsTab, activeSettingsTabProvider;
 
 import '../../../../app/theme/extensions.dart'
-    show BiuColors, BiuMetrics, ChatMode;
+    show BiuColors, BiuMetrics;
 import '../../../../core/layout/form_factor.dart';
 import '../../../../core/layout/phone_nav.dart';
 import '../../../../core/ui/biu_hoverable.dart';
@@ -31,14 +30,23 @@ import '../../../../core/ui/popup_position.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../application/chat_controller.dart';
 import '../../application/draft_history_controller.dart';
-import '../../application/effective_default_model.dart';
 import '../../domain/greeting.dart';
 import '../../application/pending_scroll_provider.dart';
 import '../../application/selection_mode_controller.dart';
+import '../../application/task_activity.dart';
+import '../../application/task_kind_store.dart';
+import '../../domain/task_kind.dart';
+import '../../domain/task_list_row.dart';
+import '../../domain/task_starters.dart';
+import 'task_dispatch_dock.dart';
+import 'task_home_view.dart';
+import 'task_list_tile.dart';
+import 'pc_status_banner.dart';
 import '../../application/thread_list_selection_controller.dart';
 import '../../data/chat_repo.dart' show ChatRepo;
 import '../../domain/chat_models.dart';
 import '../../domain/palette_actions.dart';
+import '../../domain/task_status.dart';
 import '../../domain/thread_export_json.dart' show isBulkExport;
 import '../../domain/thread_filter.dart';
 import '../../sync/chat_sync_manager.dart';
@@ -47,7 +55,6 @@ import 'chat_page_v2.dart';
 import 'command_palette_dialog.dart';
 import 'cross_thread_search_dialog.dart';
 import 'drafts_dialog.dart';
-import 'hero_view.dart';
 import 'keyboard_shortcuts_dialog.dart';
 import 'new_thread_dialog.dart';
 import 'prompt_templates_dialog.dart';
@@ -74,7 +81,6 @@ class ThreadsShellPage extends ConsumerStatefulWidget {
 
 class _ThreadsShellPageState extends ConsumerState<ThreadsShellPage> {
   String? _selectedId;
-  static const _uuid = Uuid();
 
   @override
   void initState() {
@@ -84,44 +90,43 @@ class _ThreadsShellPageState extends ConsumerState<ThreadsShellPage> {
     unawaited(ref.read(chatSyncManagerProvider).syncIfStale());
   }
 
-  /// "+"/「新建空白对话」/命令面板「新建」——不弹对话框,直接按默认偏好
-  /// (智能模式 + 本机环境 + 自动绑定在线设备)建会话并选中。高级配置(指定
-  /// worker / Task 池 / 系统提示)仍可经 showNewThreadDialog,当前 UI 未挂入口。
+  /// "+"/「新建任务」——弹出模式 / 电脑 / 上下文选择，对齐 WorkBuddy 新建任务。
   Future<void> _newThread() async {
-    final id = await createDefaultThread(ref, projectId: widget.projectId);
+    final id = await showNewThreadDialog(context, projectId: widget.projectId);
     if (id != null && mounted) {
-      setState(() => _selectedId = id);
-    } else if (id == null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('新建会话失败,请重试'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      _openTask(id);
     }
   }
 
-  /// Hero 起点卡点击 → 直接建一个 chat thread + 选中。prompt 已经被 Hero
-  /// inject 到 composerInjectProvider；ComposerV2 listen 后会塞进输入框。
-  /// 模型走生效默认模型解析（用户配的仍在目录则用，未配置/已下线 → null =
-  /// BiuMind 默认），与 createDefaultThread 一致。
-  Future<void> _newThreadWithPrompt(String prompt) async {
-    final repo = ref.read(chatControllerDepsProvider).repo;
-    final id = _uuid.v4();
-    try {
-      final eff = await resolveEffectiveDefaultModel(ref.read);
-      await repo.createThread(
-        id: id,
-        mode: ThreadMode.chat,
-        title: prompt.length > 30 ? '${prompt.substring(0, 30)}…' : prompt,
-        model: eff.code,
-        providerId: eff.providerId,
-        projectId: widget.projectId,
+  /// 起点卡：建默认任务（agent/云端）并把需求塞进 composer，不偷偷建成问答。
+  Future<void> _newThreadWithPrompt(String prompt, {String kind = 'general'}) async {
+    final l = AppLocalizations.of(context)!;
+    final id = await createDefaultThread(
+      ref,
+      projectId: widget.projectId,
+      kind: kind,
+    );
+    if (id == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.taskPcOfflineHint)),
       );
-      if (mounted) setState(() => _selectedId = id);
-    } catch (_) {
-      /* 出错暂不弹错——Hero 不阻塞 */
+      return;
     }
+    if (!mounted) return;
+    _openTask(id);
+    if (!shouldDeepLinkCodeWorkbench(kind)) {
+      ref.read(composerInjectProvider.notifier).inject(prompt);
+    }
+  }
+
+  void _openTask(String id) {
+    if (shouldDeepLinkCodeWorkbench(
+        ref.read(taskKindMapProvider.notifier).kindOf(id))) {
+      context.go('/code');
+      return;
+    }
+    setState(() => _selectedId = id);
   }
 
   void _openCrossSearch() {
@@ -515,7 +520,7 @@ class _ThreadsShellPageState extends ConsumerState<ThreadsShellPage> {
       selectedId: _selectedId,
       projectId: widget.projectId,
       title: widget.title,
-      onSelect: (id) => setState(() => _selectedId = id),
+      onSelect: _openTask,
       onNew: _newThread,
       onNewWithPrompt: _newThreadWithPrompt,
       onSearch: _openCrossSearch,
@@ -551,6 +556,7 @@ class _ThreadsShellPageState extends ConsumerState<ThreadsShellPage> {
                 threadId: id,
                 userName: widget.userName,
                 onBack: () => setState(() => _selectedId = null),
+                onOpenThread: _openTask,
               )
             else
               const SizedBox.shrink(),
@@ -564,10 +570,10 @@ class _ThreadsShellPageState extends ConsumerState<ThreadsShellPage> {
         const VerticalDivider(width: 1),
         Expanded(
           child: _selectedId == null
-              ? HeroViewV2(
+              ? TaskHomeView(
                   userName: widget.userName,
                   onNewWithPrompt: _newThreadWithPrompt,
-                  onPickRecent: (id) => setState(() => _selectedId = id),
+                  onPickRecent: _openTask,
                   onNew: _newThread,
                   recentThreads: recents
                       .where((t) => !t.archived)
@@ -578,6 +584,7 @@ class _ThreadsShellPageState extends ConsumerState<ThreadsShellPage> {
                   key: ValueKey(_selectedId),
                   threadId: _selectedId!,
                   userName: widget.userName,
+                  onOpenThread: _openTask,
                 ),
         ),
       ],
@@ -605,9 +612,8 @@ class _Sidebar extends ConsumerStatefulWidget {
   final ValueChanged<String> onSelect;
   final VoidCallback onNew;
 
-  /// 手机列表空态 hero 的 starter 点击: 注入 prompt + 新建会话 (R1.2 对话
-  /// 首页化)。null = 桌面 (列表空态保持干瘪文字, 右侧另有 HeroViewV2)。
-  final ValueChanged<String>? onNewWithPrompt;
+  /// 手机列表空态 hero 的 starter 点击: 注入 prompt + 新建会话。
+  final void Function(String prompt, {String kind})? onNewWithPrompt;
 
   final VoidCallback onSearch;
   final VoidCallback onCommandPalette;
@@ -624,6 +630,7 @@ class _Sidebar extends ConsumerStatefulWidget {
 class _SidebarState extends ConsumerState<_Sidebar> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  TaskListFilter _statusFilter = TaskListFilter.all;
 
   @override
   void dispose() {
@@ -636,9 +643,13 @@ class _SidebarState extends ConsumerState<_Sidebar> {
   /// 不左滑。其余单条操作 (置顶 / 重命名 / 导出 / 删除) 仍经 more 按钮 +
   /// 长按菜单 (P0 已就位)。
   Widget _buildTile(Thread t) {
+    final overlay = ref.watch(taskListOverlayProvider);
+    final attentionTool = ref.watch(taskActivityProvider).attentionTools[t.id];
     final tile = _ThreadTile(
       thread: t,
       selected: t.id == widget.selectedId,
+      status: deriveTaskStatus(t.id, overlay, lastStatus: t.lastTaskStatus),
+      attentionTool: attentionTool,
       onTap: () => widget.onSelect(t.id),
       // 单删也走 onThreadsDeleted 路径 —— 删掉正打开的会话时 shell
       // 清掉 _selectedId, 右侧不留空壳。
@@ -692,7 +703,13 @@ class _SidebarState extends ConsumerState<_Sidebar> {
       });
     }
     final visible = allThreads.where((t) => !t.archived).toList();
-    final filtered = filterThreadsByQuery(visible, _query);
+    final overlay = ref.watch(taskListOverlayProvider);
+    final filtered = filterThreadsByTaskStatus(
+      filterThreadsByQuery(visible, _query),
+      _statusFilter,
+      overlay,
+    );
+    final filterCounts = countThreadsByTaskFilter(visible, overlay);
     final filteredIds = filtered.map((t) => t.id).toList(growable: false);
     final allSelected =
         filteredIds.isNotEmpty && filteredIds.every(sel.contains);
@@ -859,6 +876,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
               ],
             ),
           ),
+        const PcStatusBanner(compact: true),
         // 列表过滤搜索框 — prototype `.search { background: surf-2; padding 8×12;
         //   border-radius: radius-md=10; border: 1px solid transparent; font-sm }
         //   .search:focus-within { border-color: brand }` — 嵌入式平涂 + 透明
@@ -922,15 +940,46 @@ class _SidebarState extends ConsumerState<_Sidebar> {
             style: theme.textTheme.bodySmall,
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final f in TaskListFilter.values)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      label: Text(
+                        () {
+                          final n = filterCounts[f] ?? 0;
+                          final name = _filterLabel(l, f);
+                          if (f == TaskListFilter.all || n > 0) {
+                            return '$name $n';
+                          }
+                          return name;
+                        }(),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                      selected: _statusFilter == f,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) => setState(() => _statusFilter = f),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
         Expanded(
           child: async.when(
             data: (_) {
               if (filtered.isEmpty) {
-                // 手机形态 + 无任何会话 (非过滤空) → 开聊 hero (R1.2 对话
-                // 首页化): 问候 + starter, 让新用户首屏就能开聊, 而不是干瘪
-                // "还没有对话"。桌面 / 过滤空保持干瘪文字 (桌面右侧另有
-                // HeroViewV2 占位; 过滤空是用户主动操作结果, 不需 hero)。
-                if (isPhoneLayout(context) && _query.isEmpty) {
+                // 手机 + 真正没有任务 → 问候 hero。搜索 / 状态芯片过滤空
+                // 走「没有匹配」文案，避免误显示欢迎页。
+                if (isPhoneLayout(context) &&
+                    _query.isEmpty &&
+                    _statusFilter == TaskListFilter.all &&
+                    visible.isEmpty) {
                   return _PhoneThreadsEmptyHero(
                       onNewWithPrompt: widget.onNewWithPrompt);
                 }
@@ -938,7 +987,7 @@ class _SidebarState extends ConsumerState<_Sidebar> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      _query.isEmpty
+                      (_query.isEmpty && _statusFilter == TaskListFilter.all)
                           ? l.chatV2SidebarEmptyNew
                           : l.chatV2SidebarEmptyFiltered,
                       textAlign: TextAlign.center,
@@ -982,11 +1031,24 @@ class _SidebarState extends ConsumerState<_Sidebar> {
             count: sel.count,
             onDelete: () => _batchDelete(sel.ids),
           )
-        else
+        else ...[
+          TaskDispatchDock(
+            projectId: widget.projectId,
+            onCreated: widget.onSelect,
+          ),
           const _ArchivedFooter(),
+        ],
       ],
     );
   }
+
+  String _filterLabel(AppLocalizations l, TaskListFilter f) => switch (f) {
+        TaskListFilter.all => l.taskFilterAll,
+        TaskListFilter.running => l.taskFilterRunning,
+        TaskListFilter.awaiting => l.taskFilterAwaiting,
+        TaskListFilter.completed => l.taskFilterCompleted,
+        TaskListFilter.failed => l.taskFilterFailed,
+      };
 
   /// 批量删除选中的线程 —— 二次确认 → ops.deleteThreads(逐个上行 brain +
   /// 本地单事务) → 退出选择态 + 通知 shell 清掉可能正打开的会话 + toast。
@@ -1125,25 +1187,18 @@ class _BatchActionBar extends StatelessWidget {
   }
 }
 
-/// 手机形态会话列表空态 (无任何会话) 的开聊引导 (R1.2 对话首页化)。
-///
-/// 问候 + 4 张 starter 卡, 点击 → 注入 prompt + 新建会话。对标桌面
-/// [HeroViewV2], 但更紧凑 (手机单栏首页, 无最近会话列表区)。桌面列表
-/// 空态保持干瘪文字 — 桌面右侧已有 HeroViewV2 作欢迎态, 列表空态再放
-/// hero 会重复。
+/// 手机任务首页空态：问候 + 常见任务卡。下发台在列表底部。
 class _PhoneThreadsEmptyHero extends ConsumerWidget {
   const _PhoneThreadsEmptyHero({this.onNewWithPrompt});
-  final ValueChanged<String>? onNewWithPrompt;
+  final void Function(String prompt, {String kind})? onNewWithPrompt;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context)!;
     final greeting = greetingForHour(DateTime.now().hour);
-    final starters = kStarterPrompts.take(4).toList(growable: false);
-    // SingleChildScrollView: 键盘顶起 / 矮屏不溢出 (跟 EmptyThreadViewV2
-    // 同套路, 方案 §4.4)。
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 36, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1154,30 +1209,33 @@ class _PhoneThreadsEmptyHero extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '挑一个起点开始，或者点右上 + 新建',
+            l.taskHomeSubtitle,
             style: theme.textTheme.bodyMedium
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          const PcStatusBanner(padded: false),
+          const SizedBox(height: 16),
+          Text(
+            l.taskStartersTitle,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
           LayoutBuilder(builder: (ctx, lc) {
             final cardW = (lc.maxWidth - 12) / 2;
             return Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
-                for (final p in starters)
+                for (final p in kTaskStarters)
                   SizedBox(
                     width: cardW,
                     child: _StarterCard(
                       prompt: p,
-                      onTap: () {
-                        // 顺序跟 HeroViewV2 starter 一致: 先 inject 让
-                        // ComposerV2 listen 拿到, 再建会话切过去。
-                        ref
-                            .read(composerInjectProvider.notifier)
-                            .inject(p.prompt);
-                        onNewWithPrompt?.call(p.prompt);
-                      },
+                      onTap: () =>
+                          onNewWithPrompt?.call(p.prompt, kind: p.kind),
                     ),
                   ),
               ],
@@ -1414,10 +1472,14 @@ class _ThreadTile extends ConsumerStatefulWidget {
     required this.thread,
     required this.selected,
     required this.onTap,
+    this.status = TaskStatus.queued,
+    this.attentionTool,
     this.onDeleted,
   });
   final Thread thread;
   final bool selected;
+  final TaskStatus status;
+  final String? attentionTool;
   final VoidCallback onTap;
 
   /// 单删成功后的回调 —— shell 据此清掉正打开的会话(_selectedId)。
@@ -1604,16 +1666,15 @@ class _ThreadTileState extends ConsumerState<_ThreadTile> {
     final c = theme.extension<BiuColors>()!;
     final m = theme.extension<BiuMetrics>()!;
     final l = AppLocalizations.of(context)!;
-    final modeLabel = switch (widget.thread.mode) {
-      ThreadMode.chat => 'Chat',
-      ThreadMode.agent => 'Agent',
-      ThreadMode.task => 'Task',
-    };
-    final modeColor = c.modeColor(switch (widget.thread.mode) {
-      ThreadMode.chat => ChatMode.chat,
-      ThreadMode.agent => ChatMode.agent,
-      ThreadMode.task => ChatMode.task,
-    });
+    final model = buildTaskListRowModel(
+      status: widget.status,
+      mode: widget.thread.mode,
+      attentionTool: widget.attentionTool,
+    );
+    final statusLabel = taskRowStatusLabel(l, model);
+    final title = widget.thread.title.isEmpty
+        ? l.chatV2NewThreadFallback
+        : widget.thread.title;
     // 批量选择态:tap 切换选中而非导航;右键菜单 / hover more 按钮禁用。
     final sel = ref.watch(threadListSelectionProvider);
     final selecting = sel.active;
@@ -1672,8 +1733,6 @@ class _ThreadTileState extends ConsumerState<_ThreadTile> {
                     // 跟 dot 两个紫色形状挤一起视觉冗余。prototype `.tile.selected`
                     // 状态下 mode-dot 跟 brandSoft 浅紫底色融合,这里直接不画。
                     if (selecting) ...[
-                      // 选择态:前置 checkbox 取代 mode-dot。compact + 收紧点击区,
-                      // 整行点击也会 toggle(BiuHoverable.onTap)。
                       SizedBox(
                         width: 24,
                         height: 24,
@@ -1686,86 +1745,15 @@ class _ThreadTileState extends ConsumerState<_ThreadTile> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                    ] else if (!widget.selected) ...[
-                      Container(
-                        width: m.modeDotSize,
-                        height: m.modeDotSize,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: modeColor.withValues(alpha: 0.85),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
                     ],
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              if (widget.thread.pinned)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 4),
-                                  child: Icon(
-                                    Icons.push_pin,
-                                    size: 12,
-                                    color: c.brand,
-                                  ),
-                                ),
-                              Expanded(
-                                child: Text(
-                                  widget.thread.title.isEmpty
-                                      ? l.chatV2NewThreadFallback
-                                      : widget.thread.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  // prototype `.tile.selected .title { color: text-1;
-                                  //   font-weight: 600 }` — 选中态保持 text-1 主文字
-                                  //   色,仅加粗;不染 brand(避免跟左侧 brand 短条
-                                  //   颜色重复造成视觉拥挤)。
-                                  style: TextStyle(
-                                    fontWeight: widget.selected
-                                        ? FontWeight.w600
-                                        : FontWeight.w500,
-                                    fontSize: m.fontTileTitle,
-                                    color: c.text1,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          // prototype `.tile .meta` — inline 文字行,mode-tag 染色
-                          // 不带 pill 边框,跟 "·" 与时间用 6px gap 隔开。
-                          Row(
-                            children: [
-                              Text(
-                                modeLabel,
-                                style: TextStyle(
-                                  fontSize: m.fontTileMeta,
-                                  fontWeight: FontWeight.w600,
-                                  color: modeColor,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '·',
-                                style: TextStyle(
-                                  fontSize: m.fontTileMeta,
-                                  color: c.text3,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _relativeTime(widget.thread.updatedAt),
-                                style: TextStyle(
-                                  fontSize: m.fontTileMeta,
-                                  color: c.text3,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                      child: TaskListRowBody(
+                        title: title,
+                        model: model,
+                        statusLabel: statusLabel,
+                        executorLabel: taskExecutorLabel(l, model.executor),
+                        timeLabel: _relativeTime(widget.thread.updatedAt),
+                        pinned: widget.thread.pinned,
                       ),
                     ),
                     // 右侧 more 按钮 — 桌面仅 hover 时浮现 (prototype `.tile .more

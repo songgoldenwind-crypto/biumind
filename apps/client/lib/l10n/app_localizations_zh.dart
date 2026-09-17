@@ -12,10 +12,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appTitle => 'BiuMind';
 
   @override
-  String get navChat => '聊天';
+  String get navChat => '任务';
 
   @override
-  String get navWiki => '知识库';
+  String get navWiki => '知识';
 
   @override
   String get navGraph => '图谱';
@@ -1139,13 +1139,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatV2HeroSubtitle => '今天想做点什么？挑一个起点开始，或者 ';
 
   @override
-  String get chatV2HeroNewBlank => '新建空白对话';
+  String get chatV2HeroNewBlank => '新建任务';
 
   @override
   String get chatV2HeroSkillsLabel => '我的技能';
 
   @override
-  String get chatV2HeroRecentLabel => '最近对话';
+  String get chatV2HeroRecentLabel => '最近任务';
 
   @override
   String get chatV2HeroRecentModelsLabel => '最近用过';
@@ -1284,13 +1284,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatV2ComposerModelRefresh => '刷新模型列表';
 
   @override
-  String get chatV2NewThreadFallback => '新对话';
+  String get chatV2NewThreadFallback => '新任务';
 
   @override
-  String get chatV2SidebarTitle => '对话';
+  String get chatV2SidebarTitle => '任务';
 
   @override
-  String get chatV2SidebarFilterHint => '过滤对话…';
+  String get chatV2SidebarFilterHint => '过滤任务…';
 
   @override
   String get chatV2SidebarPaletteTooltip => '命令面板 (Cmd/Ctrl+K)';
@@ -1305,7 +1305,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatV2SidebarImportTooltip => '导入对话 JSON';
 
   @override
-  String get chatV2SidebarNewTooltip => '新建对话';
+  String get chatV2SidebarNewTooltip => '新建任务';
 
   @override
   String get chatV2SidebarSectionPinned => '置顶';
@@ -1314,10 +1314,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatV2SidebarSectionOthers => '其它';
 
   @override
-  String get chatV2SidebarEmptyNew => '还没有对话\n点上方 + 新建';
+  String get chatV2SidebarEmptyNew => '还没有任务\n点上方 + 下一句话需求';
 
   @override
-  String get chatV2SidebarEmptyFiltered => '没有匹配的对话';
+  String get chatV2SidebarEmptyFiltered => '没有匹配的任务';
 
   @override
   String chatV2SidebarArchivedFooter(Object count) {
@@ -1405,10 +1405,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatV2PaletteGroupSwitch => '切换对话';
 
   @override
-  String get chatV2PaletteNewThread => '新建对话';
+  String get chatV2PaletteNewThread => '新建任务';
 
   @override
-  String get chatV2PaletteNewThreadHint => '打开新建对话向导';
+  String get chatV2PaletteNewThreadHint => '选择模式、电脑和上下文';
 
   @override
   String get chatV2PaletteCrossSearch => '搜索全部对话';
@@ -1519,10 +1519,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chatV2NewDialogSystemPromptHint => '\"你是一个…\"，留空走默认';
 
   @override
-  String get chatV2NewDialogPickWorker => '选择 worker';
+  String get chatV2NewDialogPickWorker => '选择在线电脑';
 
   @override
-  String get chatV2NewDialogNoOnlineDaemon => '当前无在线 daemon';
+  String get chatV2NewDialogNoOnlineDaemon => '没有在线电脑。请打开桌面 BiuMind，或改用云端任务。';
 
   @override
   String get chatV2NewDialogEmptyEnvAuto =>
@@ -2644,6 +2644,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navCreation => '创作';
 
   @override
+  String get navApps => '应用';
+
+  @override
   String get navProfile => '我的';
 
   @override
@@ -3015,4 +3018,199 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get permWikiWrite => '写入你的 Wiki（仅限本应用 namespace）。';
+
+  @override
+  String get taskFilterAll => '全部';
+
+  @override
+  String get taskFilterRunning => '执行中';
+
+  @override
+  String get taskFilterAwaiting => '等你';
+
+  @override
+  String get taskAwaitingWrite => '要写文件';
+
+  @override
+  String get taskFilterCompleted => '已完成';
+
+  @override
+  String get taskFilterFailed => '失败';
+
+  @override
+  String get taskStatusQueued => '排队';
+
+  @override
+  String get taskResultTitle => '结果';
+
+  @override
+  String get taskResultArtifacts => '产物';
+
+  @override
+  String get taskResultFiles => '全部文件';
+
+  @override
+  String get taskResultChanges => '变更';
+
+  @override
+  String get taskResultPreview => '预览';
+
+  @override
+  String get taskResultEmpty => '还没有可验收产物。Agent 写下文件后会出现在这里。';
+
+  @override
+  String get taskResultPreviewUnavailable => 'Office 二进制预览后续客户端再补。路径和摘要如下。';
+
+  @override
+  String get taskPhoneHint => '下一句话任务，或点 + 选家里那台电脑。';
+
+  @override
+  String get taskDispatchHint => '一句话下发任务…';
+
+  @override
+  String get taskDispatchSend => '下发';
+
+  @override
+  String get taskDispatchOptions => '选项';
+
+  @override
+  String get taskPcOffline => '电脑离线';
+
+  @override
+  String get taskPcOfflineHint => '电脑未在线。请打开桌面 BiuMind，或改用云端任务。';
+
+  @override
+  String get taskSwitchCloud => '改用云端任务';
+
+  @override
+  String get officeKindPpt => '幻灯片';
+
+  @override
+  String get officeKindSheet => '表格';
+
+  @override
+  String get officeKindPdf => 'PDF';
+
+  @override
+  String get officeKindResearch => '研究简报';
+
+  @override
+  String get officeKindBatch => '批量文件';
+
+  @override
+  String get officeKindMarkdown => 'Markdown';
+
+  @override
+  String get officeKindWiki => 'Wiki 页';
+
+  @override
+  String get officeKindFile => '文件';
+
+  @override
+  String get taskRunStyleExecute => '直接执行';
+
+  @override
+  String get taskRunStylePlanFirst => '先计划';
+
+  @override
+  String get taskRunStylePlanFirstHint => '先给出分步计划，等你确认后再改文件。';
+
+  @override
+  String get taskResultDownload => '下载';
+
+  @override
+  String get taskResultOpenLocal => '在本机打开';
+
+  @override
+  String taskResultOnComputer(String path) {
+    return '文件在电脑：$path';
+  }
+
+  @override
+  String get taskResultNotSynced => '未同步到云端，电脑上的路径仍然有效。';
+
+  @override
+  String get taskWorkdirMissing => '未授权文件夹';
+
+  @override
+  String get taskExecutorPc => '电脑';
+
+  @override
+  String get taskExecutorCloud => '云端';
+
+  @override
+  String get taskExecutorChat => '问答';
+
+  @override
+  String get taskComposerFollowUp => '补充需求或追问这次任务…';
+
+  @override
+  String get taskHomeSubtitle => '电脑要开着 BiuMind。下发后可以关手机，回来仍是同一任务。';
+
+  @override
+  String get taskComputerOnline => '电脑在线';
+
+  @override
+  String get taskComputerOffline => '电脑未在线';
+
+  @override
+  String taskComputerOnlineNamed(String name) {
+    return '电脑在线 · $name';
+  }
+
+  @override
+  String get taskRecent => '最近任务';
+
+  @override
+  String get taskStartersTitle => '常见任务';
+
+  @override
+  String get taskEmptyThreadHint => '写下需求，Agent 会在授权文件夹里交出可打开的产物。';
+
+  @override
+  String get chatV2NewDialogWorkdir => '工作目录';
+
+  @override
+  String get chatV2NewDialogWorkdirHint => '电脑 Agent 可以写入的文件夹';
+
+  @override
+  String get taskKindLabel => '任务类型';
+
+  @override
+  String get taskKindGeneral => '通用';
+
+  @override
+  String get taskKindOffice => '办公';
+
+  @override
+  String get taskKindCode => '编码';
+
+  @override
+  String taskApprovalWritePath(String path) {
+    return '将写入：$path';
+  }
+
+  @override
+  String get taskSpawnExpert => '从本任务派专家';
+
+  @override
+  String get taskSpawnExpertHint => '会新建一条任务，挂在当前任务下面，用人设区分角色。';
+
+  @override
+  String get taskSpawnExpertRole => '专家角色';
+
+  @override
+  String get taskSpawnExpertRoleHint => '例如：法务、校对、数据整理';
+
+  @override
+  String get taskSpawnExpertSubmit => '派出去';
+
+  @override
+  String get profileOpenSearch => '搜索';
+
+  @override
+  String get profileOpenNotes => '笔记';
+
+  @override
+  String get profileOpenCode => '编码工作台';
 }

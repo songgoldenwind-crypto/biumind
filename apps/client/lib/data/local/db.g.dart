@@ -7031,6 +7031,17 @@ class $ChatThreadsV2Table extends ChatThreadsV2
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _lastTaskStatusMeta = const VerificationMeta(
+    'lastTaskStatus',
+  );
+  @override
+  late final GeneratedColumn<String> lastTaskStatus = GeneratedColumn<String>(
+    'last_task_status',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _ownerKeyMeta = const VerificationMeta(
     'ownerKey',
   );
@@ -7063,6 +7074,7 @@ class $ChatThreadsV2Table extends ChatThreadsV2
     createdAt,
     updatedAt,
     remoteUpdatedAtUs,
+    lastTaskStatus,
     ownerKey,
   ];
   @override
@@ -7205,6 +7217,15 @@ class $ChatThreadsV2Table extends ChatThreadsV2
         ),
       );
     }
+    if (data.containsKey('last_task_status')) {
+      context.handle(
+        _lastTaskStatusMeta,
+        lastTaskStatus.isAcceptableOrUnknown(
+          data['last_task_status']!,
+          _lastTaskStatusMeta,
+        ),
+      );
+    }
     if (data.containsKey('owner_key')) {
       context.handle(
         _ownerKeyMeta,
@@ -7292,6 +7313,10 @@ class $ChatThreadsV2Table extends ChatThreadsV2
         DriftSqlType.int,
         data['${effectivePrefix}remote_updated_at_us'],
       ),
+      lastTaskStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_task_status'],
+      ),
       ownerKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}owner_key'],
@@ -7363,6 +7388,9 @@ class LocalChatThreadV2 extends DataClass
   /// 此列。null = 本机产生、从未从服务端同步过的会话。
   final int? remoteUpdatedAtUs;
 
+  /// 服务端 metadata.task.status 镜像。
+  final String? lastTaskStatus;
+
   /// P0 数据隔离（docs/BiuMind-Local-Data-Isolation-Design.md §2）：scope 列 =
   /// sha256(normalize(identityUrl)) + ":" + JWT sub，「环境 × 账号」复合键。
   /// 所有查询强制按此列过滤；'' 为非法值（查询永不匹配，写入必填当前 scope）。
@@ -7386,6 +7414,7 @@ class LocalChatThreadV2 extends DataClass
     required this.createdAt,
     required this.updatedAt,
     this.remoteUpdatedAtUs,
+    this.lastTaskStatus,
     required this.ownerKey,
   });
   @override
@@ -7424,6 +7453,9 @@ class LocalChatThreadV2 extends DataClass
     map['updated_at'] = Variable<DateTime>(updatedAt);
     if (!nullToAbsent || remoteUpdatedAtUs != null) {
       map['remote_updated_at_us'] = Variable<int>(remoteUpdatedAtUs);
+    }
+    if (!nullToAbsent || lastTaskStatus != null) {
+      map['last_task_status'] = Variable<String>(lastTaskStatus);
     }
     map['owner_key'] = Variable<String>(ownerKey);
     return map;
@@ -7465,6 +7497,9 @@ class LocalChatThreadV2 extends DataClass
       remoteUpdatedAtUs: remoteUpdatedAtUs == null && nullToAbsent
           ? const Value.absent()
           : Value(remoteUpdatedAtUs),
+      lastTaskStatus: lastTaskStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastTaskStatus),
       ownerKey: Value(ownerKey),
     );
   }
@@ -7493,6 +7528,7 @@ class LocalChatThreadV2 extends DataClass
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       remoteUpdatedAtUs: serializer.fromJson<int?>(json['remoteUpdatedAtUs']),
+      lastTaskStatus: serializer.fromJson<String?>(json['lastTaskStatus']),
       ownerKey: serializer.fromJson<String>(json['ownerKey']),
     );
   }
@@ -7518,6 +7554,7 @@ class LocalChatThreadV2 extends DataClass
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'remoteUpdatedAtUs': serializer.toJson<int?>(remoteUpdatedAtUs),
+      'lastTaskStatus': serializer.toJson<String?>(lastTaskStatus),
       'ownerKey': serializer.toJson<String>(ownerKey),
     };
   }
@@ -7541,6 +7578,7 @@ class LocalChatThreadV2 extends DataClass
     DateTime? createdAt,
     DateTime? updatedAt,
     Value<int?> remoteUpdatedAtUs = const Value.absent(),
+    Value<String?> lastTaskStatus = const Value.absent(),
     String? ownerKey,
   }) => LocalChatThreadV2(
     id: id ?? this.id,
@@ -7565,6 +7603,9 @@ class LocalChatThreadV2 extends DataClass
     remoteUpdatedAtUs: remoteUpdatedAtUs.present
         ? remoteUpdatedAtUs.value
         : this.remoteUpdatedAtUs,
+    lastTaskStatus: lastTaskStatus.present
+        ? lastTaskStatus.value
+        : this.lastTaskStatus,
     ownerKey: ownerKey ?? this.ownerKey,
   );
   LocalChatThreadV2 copyWithCompanion(ChatThreadsV2Companion data) {
@@ -7599,6 +7640,9 @@ class LocalChatThreadV2 extends DataClass
       remoteUpdatedAtUs: data.remoteUpdatedAtUs.present
           ? data.remoteUpdatedAtUs.value
           : this.remoteUpdatedAtUs,
+      lastTaskStatus: data.lastTaskStatus.present
+          ? data.lastTaskStatus.value
+          : this.lastTaskStatus,
       ownerKey: data.ownerKey.present ? data.ownerKey.value : this.ownerKey,
     );
   }
@@ -7624,6 +7668,7 @@ class LocalChatThreadV2 extends DataClass
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('remoteUpdatedAtUs: $remoteUpdatedAtUs, ')
+          ..write('lastTaskStatus: $lastTaskStatus, ')
           ..write('ownerKey: $ownerKey')
           ..write(')'))
         .toString();
@@ -7649,6 +7694,7 @@ class LocalChatThreadV2 extends DataClass
     createdAt,
     updatedAt,
     remoteUpdatedAtUs,
+    lastTaskStatus,
     ownerKey,
   );
   @override
@@ -7673,6 +7719,7 @@ class LocalChatThreadV2 extends DataClass
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.remoteUpdatedAtUs == this.remoteUpdatedAtUs &&
+          other.lastTaskStatus == this.lastTaskStatus &&
           other.ownerKey == this.ownerKey);
 }
 
@@ -7695,6 +7742,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int?> remoteUpdatedAtUs;
+  final Value<String?> lastTaskStatus;
   final Value<String> ownerKey;
   final Value<int> rowid;
   const ChatThreadsV2Companion({
@@ -7716,6 +7764,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.remoteUpdatedAtUs = const Value.absent(),
+    this.lastTaskStatus = const Value.absent(),
     this.ownerKey = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -7738,6 +7787,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
     required DateTime createdAt,
     required DateTime updatedAt,
     this.remoteUpdatedAtUs = const Value.absent(),
+    this.lastTaskStatus = const Value.absent(),
     this.ownerKey = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -7763,6 +7813,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? remoteUpdatedAtUs,
+    Expression<String>? lastTaskStatus,
     Expression<String>? ownerKey,
     Expression<int>? rowid,
   }) {
@@ -7785,6 +7836,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (remoteUpdatedAtUs != null) 'remote_updated_at_us': remoteUpdatedAtUs,
+      if (lastTaskStatus != null) 'last_task_status': lastTaskStatus,
       if (ownerKey != null) 'owner_key': ownerKey,
       if (rowid != null) 'rowid': rowid,
     });
@@ -7809,6 +7861,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int?>? remoteUpdatedAtUs,
+    Value<String?>? lastTaskStatus,
     Value<String>? ownerKey,
     Value<int>? rowid,
   }) {
@@ -7831,6 +7884,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       remoteUpdatedAtUs: remoteUpdatedAtUs ?? this.remoteUpdatedAtUs,
+      lastTaskStatus: lastTaskStatus ?? this.lastTaskStatus,
       ownerKey: ownerKey ?? this.ownerKey,
       rowid: rowid ?? this.rowid,
     );
@@ -7893,6 +7947,9 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
     if (remoteUpdatedAtUs.present) {
       map['remote_updated_at_us'] = Variable<int>(remoteUpdatedAtUs.value);
     }
+    if (lastTaskStatus.present) {
+      map['last_task_status'] = Variable<String>(lastTaskStatus.value);
+    }
     if (ownerKey.present) {
       map['owner_key'] = Variable<String>(ownerKey.value);
     }
@@ -7923,6 +7980,7 @@ class ChatThreadsV2Companion extends UpdateCompanion<LocalChatThreadV2> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('remoteUpdatedAtUs: $remoteUpdatedAtUs, ')
+          ..write('lastTaskStatus: $lastTaskStatus, ')
           ..write('ownerKey: $ownerKey, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -17361,6 +17419,7 @@ typedef $$ChatThreadsV2TableCreateCompanionBuilder =
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int?> remoteUpdatedAtUs,
+      Value<String?> lastTaskStatus,
       Value<String> ownerKey,
       Value<int> rowid,
     });
@@ -17384,6 +17443,7 @@ typedef $$ChatThreadsV2TableUpdateCompanionBuilder =
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int?> remoteUpdatedAtUs,
+      Value<String?> lastTaskStatus,
       Value<String> ownerKey,
       Value<int> rowid,
     });
@@ -17484,6 +17544,11 @@ class $$ChatThreadsV2TableFilterComposer
 
   ColumnFilters<int> get remoteUpdatedAtUs => $composableBuilder(
     column: $table.remoteUpdatedAtUs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastTaskStatus => $composableBuilder(
+    column: $table.lastTaskStatus,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -17592,6 +17657,11 @@ class $$ChatThreadsV2TableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get lastTaskStatus => $composableBuilder(
+    column: $table.lastTaskStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get ownerKey => $composableBuilder(
     column: $table.ownerKey,
     builder: (column) => ColumnOrderings(column),
@@ -17673,6 +17743,11 @@ class $$ChatThreadsV2TableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get lastTaskStatus => $composableBuilder(
+    column: $table.lastTaskStatus,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get ownerKey =>
       $composableBuilder(column: $table.ownerKey, builder: (column) => column);
 }
@@ -17726,6 +17801,7 @@ class $$ChatThreadsV2TableTableManager
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int?> remoteUpdatedAtUs = const Value.absent(),
+                Value<String?> lastTaskStatus = const Value.absent(),
                 Value<String> ownerKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChatThreadsV2Companion(
@@ -17747,6 +17823,7 @@ class $$ChatThreadsV2TableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 remoteUpdatedAtUs: remoteUpdatedAtUs,
+                lastTaskStatus: lastTaskStatus,
                 ownerKey: ownerKey,
                 rowid: rowid,
               ),
@@ -17770,6 +17847,7 @@ class $$ChatThreadsV2TableTableManager
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int?> remoteUpdatedAtUs = const Value.absent(),
+                Value<String?> lastTaskStatus = const Value.absent(),
                 Value<String> ownerKey = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ChatThreadsV2Companion.insert(
@@ -17791,6 +17869,7 @@ class $$ChatThreadsV2TableTableManager
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 remoteUpdatedAtUs: remoteUpdatedAtUs,
+                lastTaskStatus: lastTaskStatus,
                 ownerKey: ownerKey,
                 rowid: rowid,
               ),

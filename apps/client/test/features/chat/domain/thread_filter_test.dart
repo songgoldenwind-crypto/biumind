@@ -3,14 +3,21 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:biumind/features/chat/domain/chat_models.dart';
+import 'package:biumind/features/chat/domain/task_status.dart';
 import 'package:biumind/features/chat/domain/thread_filter.dart';
 
-Thread _t({required String id, required String title, bool pinned = false}) {
+Thread _t({
+  required String id,
+  required String title,
+  bool pinned = false,
+  TaskStatus? lastTaskStatus,
+}) {
   return Thread(
     id: id,
     title: title,
     mode: ThreadMode.chat,
     pinned: pinned,
+    lastTaskStatus: lastTaskStatus,
     createdAt: DateTime.utc(2026, 6, 1),
     updatedAt: DateTime.utc(2026, 6, 1),
   );
@@ -77,6 +84,44 @@ void main() {
       final r = splitPinnedThreads(const []);
       expect(r.pinned, isEmpty);
       expect(r.others, isEmpty);
+    });
+  });
+
+  group('filterThreadsByTaskStatus', () {
+    test('all returns original; awaiting keeps matching ids', () {
+      final list = [
+        _t(id: 'a', title: 'wait'),
+        _t(id: 'b', title: 'run'),
+        _t(id: 'c', title: 'done'),
+      ];
+      const overlay = TaskStatusOverlay(
+        awaitingIds: {'a'},
+        runningIds: {'b'},
+        completedIds: {'c'},
+      );
+      expect(filterThreadsByTaskStatus(list, TaskListFilter.all, overlay), list);
+      expect(
+        filterThreadsByTaskStatus(list, TaskListFilter.awaiting, overlay)
+            .map((t) => t.id),
+        ['a'],
+      );
+      expect(
+        filterThreadsByTaskStatus(list, TaskListFilter.completed, overlay)
+            .map((t) => t.id),
+        ['c'],
+      );
+    });
+
+    test('completed chip uses persisted lastTaskStatus when overlay empty', () {
+      final list = [
+        _t(id: 'a', title: 'wait'),
+        _t(id: 'c', title: 'done', lastTaskStatus: TaskStatus.completed),
+      ];
+      expect(
+        filterThreadsByTaskStatus(list, TaskListFilter.completed, TaskStatusOverlay.empty)
+            .map((t) => t.id),
+        ['c'],
+      );
     });
   });
 }

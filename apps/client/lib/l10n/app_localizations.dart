@@ -107,13 +107,13 @@ abstract class AppLocalizations {
   /// No description provided for @navChat.
   ///
   /// In en, this message translates to:
-  /// **'Chat'**
+  /// **'Tasks'**
   String get navChat;
 
   /// No description provided for @navWiki.
   ///
   /// In en, this message translates to:
-  /// **'Wiki'**
+  /// **'Knowledge'**
   String get navWiki;
 
   /// No description provided for @navGraph.
@@ -2260,7 +2260,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2HeroNewBlank.
   ///
   /// In en, this message translates to:
-  /// **'new blank conversation'**
+  /// **'new task'**
   String get chatV2HeroNewBlank;
 
   /// No description provided for @chatV2HeroSkillsLabel.
@@ -2272,7 +2272,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2HeroRecentLabel.
   ///
   /// In en, this message translates to:
-  /// **'Recent conversations'**
+  /// **'Recent tasks'**
   String get chatV2HeroRecentLabel;
 
   /// No description provided for @chatV2HeroRecentModelsLabel.
@@ -2498,19 +2498,19 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2NewThreadFallback.
   ///
   /// In en, this message translates to:
-  /// **'New conversation'**
+  /// **'New task'**
   String get chatV2NewThreadFallback;
 
   /// No description provided for @chatV2SidebarTitle.
   ///
   /// In en, this message translates to:
-  /// **'Conversations'**
+  /// **'Tasks'**
   String get chatV2SidebarTitle;
 
   /// No description provided for @chatV2SidebarFilterHint.
   ///
   /// In en, this message translates to:
-  /// **'Filter conversations…'**
+  /// **'Filter tasks…'**
   String get chatV2SidebarFilterHint;
 
   /// No description provided for @chatV2SidebarPaletteTooltip.
@@ -2540,7 +2540,7 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2SidebarNewTooltip.
   ///
   /// In en, this message translates to:
-  /// **'New conversation'**
+  /// **'New task'**
   String get chatV2SidebarNewTooltip;
 
   /// No description provided for @chatV2SidebarSectionPinned.
@@ -2558,13 +2558,13 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2SidebarEmptyNew.
   ///
   /// In en, this message translates to:
-  /// **'No conversations yet\nClick + above to start'**
+  /// **'No tasks yet\nTap + to dispatch one'**
   String get chatV2SidebarEmptyNew;
 
   /// No description provided for @chatV2SidebarEmptyFiltered.
   ///
   /// In en, this message translates to:
-  /// **'No matching conversations'**
+  /// **'No matching tasks'**
   String get chatV2SidebarEmptyFiltered;
 
   /// No description provided for @chatV2SidebarArchivedFooter.
@@ -2696,13 +2696,13 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2PaletteNewThread.
   ///
   /// In en, this message translates to:
-  /// **'New conversation'**
+  /// **'New task'**
   String get chatV2PaletteNewThread;
 
   /// No description provided for @chatV2PaletteNewThreadHint.
   ///
   /// In en, this message translates to:
-  /// **'Open new conversation wizard'**
+  /// **'Pick mode, computer, and context'**
   String get chatV2PaletteNewThreadHint;
 
   /// No description provided for @chatV2PaletteCrossSearch.
@@ -2912,13 +2912,13 @@ abstract class AppLocalizations {
   /// No description provided for @chatV2NewDialogPickWorker.
   ///
   /// In en, this message translates to:
-  /// **'Pick worker'**
+  /// **'Pick an online computer'**
   String get chatV2NewDialogPickWorker;
 
   /// No description provided for @chatV2NewDialogNoOnlineDaemon.
   ///
   /// In en, this message translates to:
-  /// **'No online daemon'**
+  /// **'No online computer. Open desktop BiuMind, or switch to a cloud task.'**
   String get chatV2NewDialogNoOnlineDaemon;
 
   /// No description provided for @chatV2NewDialogEmptyEnvAuto.
@@ -5003,6 +5003,12 @@ abstract class AppLocalizations {
   /// **'Create'**
   String get navCreation;
 
+  /// No description provided for @navApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Apps'**
+  String get navApps;
+
   /// No description provided for @navProfile.
   ///
   /// In en, this message translates to:
@@ -5740,6 +5746,384 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Write to your Wiki (limited to this app\'s namespace).'**
   String get permWikiWrite;
+
+  /// No description provided for @taskFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get taskFilterAll;
+
+  /// No description provided for @taskFilterRunning.
+  ///
+  /// In en, this message translates to:
+  /// **'Running'**
+  String get taskFilterRunning;
+
+  /// No description provided for @taskFilterAwaiting.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs you'**
+  String get taskFilterAwaiting;
+
+  /// No description provided for @taskAwaitingWrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Wants to write a file'**
+  String get taskAwaitingWrite;
+
+  /// No description provided for @taskFilterCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get taskFilterCompleted;
+
+  /// No description provided for @taskFilterFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get taskFilterFailed;
+
+  /// No description provided for @taskStatusQueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued'**
+  String get taskStatusQueued;
+
+  /// No description provided for @taskResultTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get taskResultTitle;
+
+  /// No description provided for @taskResultArtifacts.
+  ///
+  /// In en, this message translates to:
+  /// **'Artifacts'**
+  String get taskResultArtifacts;
+
+  /// No description provided for @taskResultFiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Files'**
+  String get taskResultFiles;
+
+  /// No description provided for @taskResultChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes'**
+  String get taskResultChanges;
+
+  /// No description provided for @taskResultPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get taskResultPreview;
+
+  /// No description provided for @taskResultEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No deliverables yet. Files and reports show up here when the agent writes them.'**
+  String get taskResultEmpty;
+
+  /// No description provided for @taskResultPreviewUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Binary Office preview lands in a later client build. Path and excerpt are below.'**
+  String get taskResultPreviewUnavailable;
+
+  /// No description provided for @taskPhoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatch a task, or tap + to pick a computer.'**
+  String get taskPhoneHint;
+
+  /// No description provided for @taskDispatchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One-line task…'**
+  String get taskDispatchHint;
+
+  /// No description provided for @taskDispatchSend.
+  ///
+  /// In en, this message translates to:
+  /// **'Send'**
+  String get taskDispatchSend;
+
+  /// No description provided for @taskDispatchOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Options'**
+  String get taskDispatchOptions;
+
+  /// No description provided for @taskPcOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer offline'**
+  String get taskPcOffline;
+
+  /// No description provided for @taskPcOfflineHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer is offline. Open desktop BiuMind, or create a cloud task instead.'**
+  String get taskPcOfflineHint;
+
+  /// No description provided for @taskSwitchCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Use cloud task'**
+  String get taskSwitchCloud;
+
+  /// No description provided for @officeKindPpt.
+  ///
+  /// In en, this message translates to:
+  /// **'Slides'**
+  String get officeKindPpt;
+
+  /// No description provided for @officeKindSheet.
+  ///
+  /// In en, this message translates to:
+  /// **'Spreadsheet'**
+  String get officeKindSheet;
+
+  /// No description provided for @officeKindPdf.
+  ///
+  /// In en, this message translates to:
+  /// **'PDF'**
+  String get officeKindPdf;
+
+  /// No description provided for @officeKindResearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Research brief'**
+  String get officeKindResearch;
+
+  /// No description provided for @officeKindBatch.
+  ///
+  /// In en, this message translates to:
+  /// **'File pack'**
+  String get officeKindBatch;
+
+  /// No description provided for @officeKindMarkdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Markdown'**
+  String get officeKindMarkdown;
+
+  /// No description provided for @officeKindWiki.
+  ///
+  /// In en, this message translates to:
+  /// **'Wiki page'**
+  String get officeKindWiki;
+
+  /// No description provided for @officeKindFile.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get officeKindFile;
+
+  /// No description provided for @taskRunStyleExecute.
+  ///
+  /// In en, this message translates to:
+  /// **'Execute now'**
+  String get taskRunStyleExecute;
+
+  /// No description provided for @taskRunStylePlanFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan first'**
+  String get taskRunStylePlanFirst;
+
+  /// No description provided for @taskRunStylePlanFirstHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write a step-by-step plan and wait for you before changing files.'**
+  String get taskRunStylePlanFirstHint;
+
+  /// No description provided for @taskResultDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get taskResultDownload;
+
+  /// No description provided for @taskResultOpenLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Open on this computer'**
+  String get taskResultOpenLocal;
+
+  /// No description provided for @taskResultOnComputer.
+  ///
+  /// In en, this message translates to:
+  /// **'File is on the computer: {path}'**
+  String taskResultOnComputer(String path);
+
+  /// No description provided for @taskResultNotSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Not synced to cloud. Keep the computer path.'**
+  String get taskResultNotSynced;
+
+  /// No description provided for @taskWorkdirMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'No folder authorized'**
+  String get taskWorkdirMissing;
+
+  /// No description provided for @taskExecutorPc.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer'**
+  String get taskExecutorPc;
+
+  /// No description provided for @taskExecutorCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud'**
+  String get taskExecutorCloud;
+
+  /// No description provided for @taskExecutorChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get taskExecutorChat;
+
+  /// No description provided for @taskComposerFollowUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a follow-up for this task…'**
+  String get taskComposerFollowUp;
+
+  /// No description provided for @taskHomeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep desktop BiuMind running. You can close the phone after dispatching; it is still the same task.'**
+  String get taskHomeSubtitle;
+
+  /// No description provided for @taskComputerOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer online'**
+  String get taskComputerOnline;
+
+  /// No description provided for @taskComputerOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer offline'**
+  String get taskComputerOffline;
+
+  /// No description provided for @taskComputerOnlineNamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Computer online · {name}'**
+  String taskComputerOnlineNamed(String name);
+
+  /// No description provided for @taskRecent.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent tasks'**
+  String get taskRecent;
+
+  /// No description provided for @taskStartersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Common tasks'**
+  String get taskStartersTitle;
+
+  /// No description provided for @taskEmptyThreadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write the request. The agent will leave an openable file in the authorized folder.'**
+  String get taskEmptyThreadHint;
+
+  /// No description provided for @chatV2NewDialogWorkdir.
+  ///
+  /// In en, this message translates to:
+  /// **'Working folder'**
+  String get chatV2NewDialogWorkdir;
+
+  /// No description provided for @chatV2NewDialogWorkdirHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder the computer agent may write to'**
+  String get chatV2NewDialogWorkdirHint;
+
+  /// No description provided for @taskKindLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Task type'**
+  String get taskKindLabel;
+
+  /// No description provided for @taskKindGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get taskKindGeneral;
+
+  /// No description provided for @taskKindOffice.
+  ///
+  /// In en, this message translates to:
+  /// **'Office'**
+  String get taskKindOffice;
+
+  /// No description provided for @taskKindCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Code'**
+  String get taskKindCode;
+
+  /// No description provided for @taskApprovalWritePath.
+  ///
+  /// In en, this message translates to:
+  /// **'Will write: {path}'**
+  String taskApprovalWritePath(String path);
+
+  /// No description provided for @taskSpawnExpert.
+  ///
+  /// In en, this message translates to:
+  /// **'Spawn an expert from this task'**
+  String get taskSpawnExpert;
+
+  /// No description provided for @taskSpawnExpertHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Creates a child task under this one with a different system prompt.'**
+  String get taskSpawnExpertHint;
+
+  /// No description provided for @taskSpawnExpertRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Expert role'**
+  String get taskSpawnExpertRole;
+
+  /// No description provided for @taskSpawnExpertRoleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. legal, proofreader, data wrangler'**
+  String get taskSpawnExpertRoleHint;
+
+  /// No description provided for @taskSpawnExpertSubmit.
+  ///
+  /// In en, this message translates to:
+  /// **'Spawn'**
+  String get taskSpawnExpertSubmit;
+
+  /// No description provided for @profileOpenSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get profileOpenSearch;
+
+  /// No description provided for @profileOpenNotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get profileOpenNotes;
+
+  /// No description provided for @profileOpenCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Code workbench'**
+  String get profileOpenCode;
 }
 
 class _AppLocalizationsDelegate

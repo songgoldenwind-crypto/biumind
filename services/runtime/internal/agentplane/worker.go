@@ -249,6 +249,8 @@ func (w *Worker) handleWork(ctx context.Context, item *WorkItem) {
 	w.trackAgent(payload.SessionID, agent)
 	defer w.untrackAgent(payload.SessionID)
 
+	pendingWrites := map[string]string{}
+	var writeCands []string
 	for ev := range agent.Submit(ctx, payload.Prompt) {
 		// 在事件 → frame 翻译之前先检测 Done{interrupted}。这是
 		// runtime-side cancel SLO 的 「停下来了」 信号:engine 已经走完
@@ -258,7 +260,17 @@ func (w *Worker) handleWork(ctx context.Context, item *WorkItem) {
 		if d, ok := ev.(biumindkit.Done); ok && d.StopReason == "interrupted" {
 			w.observeCancelLatency(payload.SessionID)
 		}
-		raw, marshalErr := json.Marshal(sdkbridge.ToSDKFrame(ev, payload.SessionID.String()))
+		switch e := ev.(type) {
+		case biumindkit.ToolStart:
+			trackWriteStart(pendingWrites, e.Name, e.ID, e.Input, payload.Workdir)
+		case biumindkit.ToolResult:
+			writeCands = trackWriteResult(pendingWrites, writeCands, e.ID, e.IsError, payload.Workdir)
+		}
+		frame := sdkbridge.ToSDKFrame(ev, payload.SessionID.String())
+		if frame == nil {
+			continue
+		}
+		raw, marshalErr := json.Marshal(frame)
 		if marshalErr != nil {
 			w.logger.Warn("agentplane worker: marshal frame",
 				"session_id", payload.SessionID, "err", marshalErr)
@@ -275,6 +287,7 @@ func (w *Worker) handleWork(ctx context.Context, item *WorkItem) {
 			// 不能因 broker 瞬断停下
 		}
 	}
+	w.syncTaskArtifacts(context.Background(), payload, writeCands)
 	if err := w.reg.AckWork(context.Background(), item.AckToken); err != nil {
 		w.logger.Warn("agentplane worker: ack failed",
 			"session_id", payload.SessionID, "err", err)

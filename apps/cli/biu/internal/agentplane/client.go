@@ -251,13 +251,20 @@ func (c *Client) PublishFrame(ctx context.Context, sessionID uuid.UUID, frame []
 // ── HTTP plumbing ─────────────────────────────────────────
 
 func (c *Client) newReq(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
+	return c.newReqWithBearer(ctx, method, path, "", body)
+}
+
+func (c *Client) newReqWithBearer(ctx context.Context, method, path, bearer string, body io.Reader) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
 		return nil, err
 	}
-	c.mu.Lock()
-	tok := c.token
-	c.mu.Unlock()
+	tok := bearer
+	if tok == "" {
+		c.mu.Lock()
+		tok = c.token
+		c.mu.Unlock()
+	}
 	if tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}

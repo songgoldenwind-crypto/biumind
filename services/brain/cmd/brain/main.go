@@ -1371,7 +1371,8 @@ func run() error {
 	// PublishSessionFrame，daemon 不直连 DB 由此解决），form_answer 帧
 	// CAS 置 answered + 幂等补落 chat.messages form 行。
 	agentPlaneElicObserver := agentplanepkg.NewElicitationObserver(agentPlaneStore, chatStore, logger)
-	agentPlaneQueue.SetObserver(agentplanepkg.ObserverChain{agentPlaneTranscript, agentPlaneElicObserver})
+	agentPlaneTaskObserver := agentplanepkg.NewTaskAttentionObserver(agentPlaneStore, chatStore, logger)
+	agentPlaneQueue.SetObserver(agentplanepkg.ObserverChain{agentPlaneTranscript, agentPlaneElicObserver, agentPlaneTaskObserver})
 
 	// P3-c boot sweep：brain 重启即所有 chat 进程内 loop 已死，把卡在
 	// active 的 chat 僵尸 session（environment_id IS NULL）置 paused,

@@ -106,9 +106,11 @@ class ChatSyncService {
     required this.tokenProvider,
     this.threadPageSize = 200, // 服务端上限 200（store.ListThreads clamp）
     this.messagePageSize = 100,
+    this.onRemoteTask,
   });
 
   final ChatRepo repo;
+  final void Function(String threadId, Map<String, dynamic>? task)? onRemoteTask;
 
   /// brain HTTP base（单 origin，site nginx 按 /v1/* 反代）。末尾不带 `/`。
   final String baseUrl;
@@ -312,7 +314,9 @@ class ChatSyncService {
       createdAt: rt.createdAt,
       updatedAt: rt.updatedAt,
       remoteUpdatedAtUs: rt.updatedAt.toUtc().microsecondsSinceEpoch,
+      lastTaskStatus: rt.task?['status'] as String?,
     );
+    onRemoteTask?.call(rt.id, rt.task);
   }
 
   // ── 单 thread 合并 ────────────────────────────────────────
@@ -352,7 +356,9 @@ class ChatSyncService {
       createdAt: rt.createdAt,
       updatedAt: rt.updatedAt,
       remoteUpdatedAtUs: remoteUs,
+      lastTaskStatus: rt.task?['status'] as String?,
     );
+    onRemoteTask?.call(rt.id, rt.task);
     if (changed) result.threadsUpserted++;
   }
 

@@ -19,6 +19,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/layout/form_factor.dart';
 import '../core/layout/phone_tab_bar.dart';
+import '../core/layout/primary_nav.dart';
 import '../core/docproc/docproc_view.dart';
 import '../core/platform/platform_caps.dart';
 import '../core/platform/window_drag.dart';
@@ -503,12 +504,10 @@ class _NavItem {
   /// install_id, 仅 pinned app 行有 (system 行 null)。给右键菜单用来
   /// 调 reorderPinnedApp / togglePinnedApp。
   final String? installId;
-  /// 真图标 URL (含 Bearer header) — 来自 manifest.icon 的 `cas:<sha>`
-  /// 解析后拼成的 brain `/v1/brain/files-by-sha/<sha>` URL。null = 用 [icon]
-  /// 当 fallback。仅 pinned app 可能有, system 行始终 null。
   final String? iconUrl;
+  final List<String>? alsoMatch;
   const _NavItem(this.icon, this.label, this.path, this.systemId,
-      {this.installId, this.iconUrl});
+      {this.installId, this.iconUrl, this.alsoMatch});
 }
 
 class _AppShell extends ConsumerWidget {
@@ -520,15 +519,14 @@ class _AppShell extends ConsumerWidget {
   /// entries themselves are not removable (so a user who hid Chat by
   /// accident still has a way to reach it via the customize page).
   List<_NavItem> _systemItems(AppLocalizations t) => [
-        _NavItem(Icons.chat_bubble_outline_rounded, t.navChat,    '/chat',     'chat'),
-        _NavItem(Icons.search,                       '搜索',       '/search',   'search'),
-        _NavItem(Icons.menu_book_outlined,           t.navWiki,    '/wiki',     'wiki'),
-        _NavItem(Icons.note_outlined,                '笔记',       '/notes',    'notes'),
-        // _NavItem(Icons.psychology_outlined,          t.navMemory,  '/memory',   'memory'), // TODO(memory): 下线, 恢复见顶部说明
-        _NavItem(Icons.extension_outlined,           t.navSkills,  '/skills',   'skills'),
-        _NavItem(Icons.apps_outlined,                t.appsTitle,  '/apps',     'apps'),
-        _NavItem(Icons.auto_awesome_outlined,        t.navCreation, '/creation', 'creation'),
-        _NavItem(Icons.terminal_rounded,             t.navCode,    '/code',     'code'),
+        for (final d in kPrimaryNav)
+          _NavItem(
+            primaryNavIcons(d.id).$1,
+            primaryNavLabel(t, d.id),
+            d.path,
+            d.id,
+            alsoMatch: primaryNavAlsoMatch(d),
+          ),
       ];
 
   /// 哪些 route 把外层 sidebar 折叠成图标栏（IDE 风工作台空间优先）。
@@ -538,6 +536,7 @@ class _AppShell extends ConsumerWidget {
   /// /notes 自带三栏（笔记本 + 列表 + 编辑器），同样收窄。
   static bool _shouldCompact(String path) =>
       path.startsWith('/code') ||
+      path.startsWith('/chat') ||
       path.startsWith('/wiki') ||
       path.startsWith('/notes') ||
       path.startsWith('/creation');
@@ -975,11 +974,11 @@ class _Sidebar extends ConsumerWidget {
   /// `/apps/host/...` 是「运行中的 app 本体」,归属对应的 pinned 项,
   /// 不应点亮应用中心(否则进任意 app 都会双高亮)。其余菜单维持
   /// 前缀匹配。
-  static bool _systemSelected(String current, String itemPath) {
-    if (itemPath == '/apps' && current.startsWith('/apps/host/')) {
+  static bool _systemSelected(String current, _NavItem item) {
+    if (item.path == '/apps' && current.startsWith('/apps/host/')) {
       return false;
     }
-    return current.startsWith(itemPath);
+    return primaryNavMatches(current, item.path, also: item.alsoMatch);
   }
 
   /// pinned app 项是否点亮:当前在该 install 的任意 view 下
@@ -1073,7 +1072,7 @@ class _Sidebar extends ConsumerWidget {
                   for (final i in items)
                     _NavRow(
                       item: i,
-                      selected: _systemSelected(currentPath, i.path),
+                      selected: _systemSelected(currentPath, i),
                       onTap: () => _navigateTo(ctx, i.path),
                       compact: compact,
                     ),

@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:biumind/data/local/db.dart';
 import 'package:biumind/data/sse/realtime_hub.dart';
 import 'package:biumind/data/wiki_providers.dart' show appDbProvider;
+import 'package:biumind/features/chat/application/task_activity.dart';
 import 'package:biumind/features/chat/data/chat_repo.dart';
 import 'package:biumind/features/chat/data/chat_scope.dart'
     show accountIdFromEndpoint;
@@ -148,6 +149,65 @@ void main() {
     await flush();
 
     expect(await repo.getThread('t1'), isNotNull);
+  });
+
+  test('chat.task_attention marks awaiting without deleting the thread', () async {
+    await repo.createThread(id: 't1', mode: ThreadMode.agent, title: 'week');
+    listener.debugHandleFrame(_frame('chat.task_attention', {
+      'event_id': 'e1',
+      'event_type': 'chat.task_attention',
+      'data': {'thread_id': 't1', 'session_id': 's1', 'reason': 'approval'},
+    }));
+    await flush();
+    expect(await repo.getThread('t1'), isNotNull);
+    expect(
+      container.read(taskActivityProvider).awaitingIds.contains('t1'),
+      isTrue,
+    );
+  });
+
+  test('chat.task_attention with Write tool_name is stored', () async {
+    await repo.createThread(id: 't1', mode: ThreadMode.agent, title: 'week');
+    listener.debugHandleFrame(_frame('chat.task_attention', {
+      'data': {
+        'thread_id': 't1',
+        'session_id': 's1',
+        'reason': 'approval',
+        'tool_name': 'Write',
+      },
+    }));
+    await flush();
+    expect(container.read(taskActivityProvider).attentionTools['t1'], 'Write');
+  });
+
+  test('chat.task_started marks running', () async {
+    await repo.createThread(id: 't1', mode: ThreadMode.agent);
+    listener.debugHandleFrame(_frame('chat.task_started', {
+      'data': {'thread_id': 't1', 'session_id': 's1', 'reason': 'turn'},
+    }));
+    await flush();
+    expect(container.read(taskActivityProvider).runningIds.contains('t1'), isTrue);
+  });
+
+  test('chat.task_completed and task_failed update activity overlay', () async {
+    await repo.createThread(id: 't1', mode: ThreadMode.task);
+    listener.debugHandleFrame(_frame('chat.task_completed', {
+      'data': {'thread_id': 't1'},
+    }));
+    await flush();
+    expect(
+      container.read(taskActivityProvider).completedIds.contains('t1'),
+      isTrue,
+    );
+    listener.debugHandleFrame(_frame('chat.task_failed', {
+      'data': {'thread_id': 't1'},
+    }));
+    await flush();
+    expect(container.read(taskActivityProvider).failedIds.contains('t1'), isTrue);
+    expect(
+      container.read(taskActivityProvider).completedIds.contains('t1'),
+      isFalse,
+    );
   });
 
   test('P2 多账号: cursor scope = ownerKey:chat.sync', () async {

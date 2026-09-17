@@ -47,13 +47,26 @@ import '../data/chat_repo.dart';
 import '../data/chat_scope.dart';
 import '../sync/chat_sync_manager.dart';
 import '../domain/chat_models.dart';
+import '../domain/task_status.dart';
 import '../domain/thread_title.dart';
+import '../../code/data/files_client.dart';
 import 'chat_preferences.dart';
+import 'task_activity.dart';
+import 'task_artifact_sync.dart';
+import 'task_create.dart';
+import 'task_kind_store.dart';
 
 /// chat 错误的后续动作 —— 错误 banner 据此决定是否给一键修复入口。
 /// none=仅文案;reselectModel=「重新选择模型」(模型停用/不存在/无渠道);
 /// upgradePlan=「升级会员」(模型被 plan 门禁)。
-enum ChatErrorAction { none, reselectModel, upgradePlan }
+enum ChatErrorAction { none, reselectModel, upgradePlan, switchToCloudTask }
+
+/// agent 任务要绑在线电脑，但当前没有可用 daemon。
+class AgentDeviceOfflineException implements Exception {
+  const AgentDeviceOfflineException();
+  @override
+  String toString() => 'AGENT_DEVICE_OFFLINE';
+}
 
 /// ChatState —— UI 渲染需要的高层状态。具体消息/blocks 不在这里（走
 /// messagesProvider）；这里只放 connection 元状态 + 错误信息。
@@ -386,6 +399,7 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
         clearError: true,
       ),
     );
+    ref.read(taskActivityProvider.notifier).markRunning(arg);
     try {
       // B2: client-side BYOK 分流 —— 本地有匹配 key → 走本机 daemon agent 模式
       // （完整 tool loop），不再 DirectSessionController 纯对话。key 经 loopback
@@ -423,14 +437,20 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
       _bindEvents(conn.events);
       ref.onDispose(_disposeConnection);
     } catch (e) {
+      final offline = e is AgentDeviceOfflineException;
       state = AsyncValue.data(
         state.value!.copyWith(
           isStreaming: false,
           lastError: _humanizeOpenError(e),
-          lastErrorAction: ChatErrorAction.none,
+          lastErrorAction: offline
+              ? ChatErrorAction.switchToCloudTask
+              : ChatErrorAction.none,
           clearActiveMessage: true,
         ),
       );
+      if (offline) {
+        ref.read(taskActivityProvider.notifier).markFailed(arg);
+      }
     }
   }
 
@@ -574,8 +594,8 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
           .where((env) => env.workerKind == 'biu_daemon' && env.isOnline)
           .toList();
       if (online.isEmpty) {
-        // 没在线 daemon → 降级到 chat 模式,让用户的话至少能跟模型聊
-        await deps.repo.setThreadMode(thread.id, ThreadMode.chat);
+        // 遥控场景：禁止静默降级为 chat。明确失败，UI 建议改云端 task。
+        throw const AgentDeviceOfflineException();
       } else {
         await deps.repo.setThreadMode(
           thread.id,
@@ -620,15 +640,18 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
     if (e is SessionPendingException) {
       return '目标设备当前离线；任务已排队，设备上线后会自动开始。';
     }
+    if (e is AgentDeviceOfflineException) {
+      return '电脑未在线。请打开桌面 BiuMind，或把任务改成云端执行。';
+    }
     if (e is ApiError) {
       if (e.status == 404 && e.body.contains('environment not found')) {
-        return 'Agent 工作机已离线;已自动切回纯对话,请重发。';
+        return '电脑未在线。请打开桌面 BiuMind，或把任务改成云端执行。';
       }
       if (e.status == 503 && e.body.contains('no_runtime_available')) {
         return '云端 runtime 暂不可用,请稍后再试。';
       }
       if (e.status == 409 && e.body.contains('environment_offline')) {
-        return 'Agent 工作机离线中,请稍后再试。';
+        return '电脑离线中。请打开桌面 BiuMind，或把任务改成云端执行。';
       }
     }
     return e.toString();
@@ -889,6 +912,7 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
               clearError: true,
             ),
           );
+          unawaited(_pushTaskMeta(arg));
         case BlockUpdated():
           // block 变化由 messagesProvider 驱动 UI；这里 controller state
           // 不变（流式中保持 isStreaming=true）
@@ -906,9 +930,11 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
               clearActiveMessage: true,
             ),
           );
+          ref.read(taskActivityProvider.notifier).markCompleted(arg);
           // LLM 调用结束 — 让侧边栏 + 会员中心刷新余额. 之前 5 分钟缓存
           // 不主动失效, UI 看不到扣费变化, 用户误以为没扣.
           ref.invalidate(creditsBalanceProvider);
+          unawaited(_syncTaskArtifacts(arg));
         case MessageCancelled():
           // 用户按 stop -> brain 走完 clean-stop -> 客户端落地。区分于
           // MessageFailed:不写 lastError,不弹错误 toast。
@@ -932,6 +958,7 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
               clearActiveMessage: true,
             ),
           );
+          ref.read(taskActivityProvider.notifier).markFailed(arg);
           // 失败路径 model-relay 端走 release_on_failure (退还 hold),
           // 余额理论上不变但还是刷新一下兜底, 避免 stale 5min 缓存.
           ref.invalidate(creditsBalanceProvider);
@@ -949,6 +976,10 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
           // ChatController 这层不改 ChatState —— streaming 状态在 daemon 等
           // 答复期间继续保持 isStreaming=true,UI 流不被打断。
           ref.read(pendingApprovalsProvider.notifier).add(arg, event);
+          ref.read(taskActivityProvider.notifier).markAwaiting(
+                arg,
+                toolName: event.toolName,
+              );
         case ElicitationRequested():
           // agent 提问表单(chat 模式 elicitation)。投递到
           // pendingElicitationsProvider 让 UI 弹 FormCard;不应答时服务端
@@ -967,6 +998,7 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
               );
           if (!alreadySettled) {
             ref.read(pendingElicitationsProvider.notifier).add(arg, event);
+            ref.read(taskActivityProvider.notifier).markAwaiting(arg);
           }
         case FormAnswered(:final requestId):
           // 表单终态已沉淀进消息流(FormBlock,见 BiuSessionConnection
@@ -992,6 +1024,43 @@ class ChatController extends FamilyAsyncNotifier<ChatState, String> {
     });
   }
 
+  Future<void> _pushTaskMeta(String threadId) async {
+    try {
+      final deps = ref.read(chatControllerDepsProvider);
+      final t = await deps.repo.getThread(threadId);
+      if (t == null || t.mode == ThreadMode.chat) return;
+      final planFirst =
+          (t.systemPrompt ?? '').startsWith(planFirstPromptPrefix);
+      await deps.chatClient.postTaskMeta(
+        threadId,
+        runStyle: planFirst ? 'plan_first' : 'execute',
+        kind: ref.read(taskKindMapProvider.notifier).kindOf(threadId),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _syncTaskArtifacts(String threadId) async {
+    final files = ref.read(filesClientProvider);
+    if (files == null) return;
+    try {
+      final deps = ref.read(chatControllerDepsProvider);
+      final msgs = await deps.repo.listMessagesOnce(threadId);
+      await syncLocalTaskArtifactsOnComplete(
+        threadId: threadId,
+        messages: msgs,
+        files: files,
+        chat: deps.chatClient,
+      );
+      ref.invalidate(threadRemoteTaskProvider(threadId));
+    } catch (e, st) {
+      Logger('biumind.chat.task_artifacts').warning(
+        'task artifact sync failed thread=$threadId',
+        e,
+        st,
+      );
+    }
+  }
+
   Future<void> _disposeConnection() async {
     await _eventSub?.cancel();
     _eventSub = null;
@@ -1015,6 +1084,20 @@ final messagesProvider = StreamProviderFamily<List<Message>, String>((
 ) {
   final deps = ref.watch(chatControllerDepsProvider);
   return deps.repo.watchMessages(threadId);
+});
+
+/// Brain metadata.task（含 artifacts.file_id），结果区与消息提取合并。
+final threadRemoteTaskProvider =
+    FutureProvider.autoDispose.family<Map<String, dynamic>?, String>((
+  ref,
+  id,
+) async {
+  try {
+    final t = await ref.watch(chatControllerDepsProvider).chatClient.getThread(id);
+    return t.task;
+  } catch (_) {
+    return null;
+  }
 });
 
 /// threadProvider —— UI watch 单条 thread 元数据（mode / title / pinned）。
@@ -1427,6 +1510,26 @@ final pendingElicitationsProvider =
     NotifierProvider<PendingElicitationsController, PendingElicitationsState>(
       PendingElicitationsController.new,
     );
+
+/// Realtime 活动位 ∪ 本机 pending 审批/表单。
+final taskListOverlayProvider = Provider<TaskStatusOverlay>((ref) {
+  final activity = ref.watch(taskActivityProvider);
+  final approvals = ref.watch(pendingApprovalsProvider);
+  final elicit = ref.watch(pendingElicitationsProvider);
+  final awaiting = {
+    ...activity.awaitingIds,
+    for (final e in approvals.byThread.entries)
+      if (e.value.isNotEmpty) e.key,
+    for (final e in elicit.byThread.entries)
+      if (e.value.any((i) => !i.answered)) e.key,
+  };
+  return TaskStatusOverlay(
+    runningIds: activity.runningIds,
+    awaitingIds: awaiting,
+    completedIds: activity.completedIds,
+    failedIds: activity.failedIds,
+  );
+});
 
 // ── helpers ─────────────────────────────────────────────────
 

@@ -181,6 +181,15 @@ class _WorkspaceMode extends ConsumerWidget {
             onTap: () => context.go('/wiki'),
           ),
         ),
+        _NavTile(
+          inDrawer: inDrawer,
+          item: _NavItem(
+            icon: Icons.note_outlined,
+            label: '笔记',
+            selected: loc.startsWith('/notes'),
+            onTap: () => context.go('/notes'),
+          ),
+        ),
         const Spacer(),
         if (email != null && email.isNotEmpty)
           Padding(

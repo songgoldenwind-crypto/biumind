@@ -41,6 +41,8 @@ class ChatThread {
   final String? summary;
   final DateTime createdAt;
   final DateTime updatedAt;
+  /// Brain metadata.task 抽出对象；status 镜像到 Drift lastTaskStatus。
+  final Map<String, dynamic>? task;
 
   const ChatThread({
     required this.id,
@@ -59,6 +61,7 @@ class ChatThread {
     this.summary,
     required this.createdAt,
     required this.updatedAt,
+    this.task,
   });
 
   factory ChatThread.fromJson(Map<String, dynamic> j) => ChatThread(
@@ -83,6 +86,7 @@ class ChatThread {
         updatedAt:
             DateTime.tryParse(j['updated_at'] as String? ?? '')?.toUtc() ??
                 DateTime.now().toUtc(),
+        task: (j['task'] as Map?)?.cast<String, dynamic>(),
       );
 }
 
@@ -395,6 +399,28 @@ class ChatClient {
 
   Future<ChatThread> getThread(String id) async {
     final raw = await _request('GET', '/v1/threads/$id');
+    return ChatThread.fromJson(raw);
+  }
+
+  Future<ChatThread> postTaskArtifacts(
+    String id,
+    List<Map<String, dynamic>> artifacts,
+  ) async {
+    final raw = await _request('POST', '/v1/threads/$id/task-artifacts', body: {
+      'artifacts': artifacts,
+    });
+    return ChatThread.fromJson(raw);
+  }
+
+  Future<ChatThread> postTaskMeta(
+    String id, {
+    String? kind,
+    String? runStyle,
+  }) async {
+    final raw = await _request('POST', '/v1/threads/$id/task-meta', body: {
+      if (kind != null && kind.isNotEmpty) 'kind': kind,
+      if (runStyle != null && runStyle.isNotEmpty) 'run_style': runStyle,
+    });
     return ChatThread.fromJson(raw);
   }
 

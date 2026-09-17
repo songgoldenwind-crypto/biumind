@@ -11,6 +11,10 @@
 // UI：modal dialog，左边垂直 segmented mode 选择，右边随 mode 变化的
 // 配置面板。提交按钮在右下。
 
+import 'dart:async';
+
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
@@ -24,9 +28,14 @@ import '../../application/chat_controller.dart';
 import '../../application/chat_preferences.dart';
 import '../../application/effective_default_model.dart';
 import '../../application/new_thread_memory.dart';
+import '../../application/task_create.dart';
+import '../../application/task_kind_store.dart';
 import '../../domain/chat_models.dart';
+import '../../domain/task_kind.dart';
+import '../../domain/task_workdir.dart';
 import '../../domain/thread_title.dart';
 import 'model_default_badge.dart';
+import 'task_kind_picker.dart';
 
 /// helper —— 在 [ctx] 上弹 NewThreadDialog；用户取消返 null。
 /// 创建成功返新 thread 的 id。[projectId] 非 null 时新建的 thread 自动
@@ -38,22 +47,22 @@ Future<String?> showNewThreadDialog(BuildContext ctx, {String? projectId}) {
   );
 }
 
-/// 直接按用户默认偏好新建会话(不弹 NewThreadDialog)。"+"/「新建空白对话」/
-/// `/new` 都走这里——一键建会话,无需任何选择。返回新 thread id;失败返 null。
-///
-/// 默认:mode = prefs.defaultMode(出厂 = agent/智能)、model = 生效默认模型
-/// (resolveEffectiveDefaultModel：用户配的默认模型仍在可用目录中则用之,
-/// 未配置/已下线 → null = BiuMind 官方默认)、runtimeEnvMode 按 mode 推导
-/// (chat=none / agent=local / task=cloud)。agent 模式自动绑定首台在线设备
-/// (biu_daemon/biu_cli);无在线设备时 env 留空照常建会话(createThread 仅本地
-/// Drift 插入、不碰 brain,设备只在发消息时才需要),用户可后续在 composer
-/// 模式切换里绑定。需要标题/系统提示/指定 worker/Task 池等高级配置时仍可
-/// 调 [showNewThreadDialog]。
-Future<String?> createDefaultThread(WidgetRef ref, {String? projectId}) async {
+/// 直接按用户默认偏好新建任务。"+"/手机一句话都走这里。
+/// agent 且没有在线电脑时 **不插库**，返回 null（调用方提示改云端或打开电脑）。
+Future<String?> createDefaultThread(
+  WidgetRef ref, {
+  String? projectId,
+  bool planFirst = false,
+  bool forceCloud = false,
+  String kind = kTaskKindGeneral,
+}) async {
   final prefs = ref.read(chatPreferencesProvider);
   final repo = ref.read(chatControllerDepsProvider).repo;
   final id = const Uuid().v4();
-  final mode = prefs.defaultMode;
+  final mode = resolveDispatchMode(
+    defaultMode: prefs.defaultMode,
+    forceCloud: forceCloud,
+  );
   final eff = await resolveEffectiveDefaultModel(ref.read);
   final model = eff.code;
   final providerId = eff.providerId;
@@ -64,23 +73,26 @@ Future<String?> createDefaultThread(WidgetRef ref, {String? projectId}) async {
   };
   String? envId;
   if (mode == ThreadMode.agent) {
-    // 强制 refresh 一次,避免 autoDispose 缓存里已被 brain GC 的过期 daemon
-    // 导致后续 createSession 404(与 composer 模式切换同款防御)。
     ref.invalidate(agentEnvironmentsProvider);
     try {
       final envs = await ref.read(agentEnvironmentsProvider.future);
-      final online = envs
-          .where(
-            (e) =>
-                e.isOnline &&
-                (e.workerKind == 'biu_daemon' || e.workerKind == 'biu_cli'),
-          )
-          .toList();
-      if (online.isNotEmpty) envId = online.first.environmentId;
+      envId = pickOnlineAgentEnv(envs.map(
+        (e) => TaskCreateEnv(
+          id: e.environmentId,
+          online: e.isOnline,
+          workerKind: e.workerKind,
+        ),
+      ));
     } catch (_) {
-      /* 拉设备失败照常建会话,env 留空 */
+      envId = null;
     }
   }
+  if (agentCreateError(mode: mode, environmentId: envId) != null) {
+    return null;
+  }
+  final workdir =
+      mode == ThreadMode.agent ? prefs.lastAgentWorkdir : null;
+  final styled = applyRunStyle(planFirst: planFirst && mode != ThreadMode.chat);
   try {
     await repo.createThread(
       id: id,
@@ -90,7 +102,25 @@ Future<String?> createDefaultThread(WidgetRef ref, {String? projectId}) async {
       providerId: providerId,
       runtimeEnvMode: runtimeEnvMode,
       projectId: projectId,
+      workdir: workdir,
+      systemPrompt: styled.systemPrompt,
+      autoApprove: styled.autoApprove,
     );
+    final runStyle = taskRunStyleName(
+      planFirst: planFirst && mode != ThreadMode.chat,
+      mode: mode,
+    );
+    final taskKind = normalizeTaskKind(kind);
+    ref.read(taskKindMapProvider.notifier).remember(id, taskKind);
+    if (mode != ThreadMode.chat) {
+      try {
+        await ref.read(chatControllerDepsProvider).chatClient.postTaskMeta(
+              id,
+              runStyle: runStyle.isEmpty ? 'execute' : runStyle,
+              kind: taskKind,
+            );
+      } catch (_) {}
+    }
     return id;
   } catch (_) {
     return null;
@@ -108,7 +138,7 @@ class NewThreadDialog extends ConsumerStatefulWidget {
 class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
   static const _uuid = Uuid();
 
-  ThreadMode _mode = ThreadMode.chat;
+  ThreadMode _mode = ThreadMode.agent;
   String _chatModel = 'biumind-default';
   // 与 _chatModel 配对的 provider slug —— 路由消歧(同 code 可能在官方 +
   // BYOK provider 下都有)。'biumind-default' 时为 null。
@@ -126,6 +156,9 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
   final _poolTagCtrl = TextEditingController();
   final _titleCtrl = TextEditingController();
   final _systemPromptCtrl = TextEditingController();
+  final _workdirCtrl = TextEditingController();
+  bool _planFirst = false;
+  String _taskKind = kTaskKindGeneral;
 
   bool _submitting = false;
   String? _submitError;
@@ -138,6 +171,9 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
     // 显示回退但状态变量仍存失效 code 被提交的问题）。
     final prefs = ref.read(chatPreferencesProvider);
     _mode = prefs.defaultMode;
+    if (prefs.lastAgentWorkdir != null && prefs.lastAgentWorkdir!.isNotEmpty) {
+      _workdirCtrl.text = prefs.lastAgentWorkdir!;
+    }
     final eff = resolveDefaultModel(
       prefs,
       ref.read(availableChatModelsProvider).valueOrNull,
@@ -192,6 +228,7 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
     _poolTagCtrl.dispose();
     _titleCtrl.dispose();
     _systemPromptCtrl.dispose();
+    _workdirCtrl.dispose();
     super.dispose();
   }
 
@@ -226,6 +263,16 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
       final effectiveTitle = _titleCtrl.text.trim().isEmpty
           ? titleFromPrompt(_systemPromptCtrl.text)
           : _titleCtrl.text.trim();
+      final planFirst = _planFirst && _mode != ThreadMode.chat;
+      final styled = applyRunStyle(
+        planFirst: planFirst,
+        existingPrompt: _systemPromptCtrl.text.trim().isEmpty
+            ? null
+            : _systemPromptCtrl.text.trim(),
+      );
+      final workdir = _mode == ThreadMode.agent
+          ? (_workdirCtrl.text.trim().isEmpty ? null : _workdirCtrl.text.trim())
+          : null;
       await repo.createThread(
         id: id,
         title: effectiveTitle,
@@ -241,13 +288,30 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
         // model 配对消歧(BYOK 路由),默认时同样留空。
         model: _chatModel == 'biumind-default' ? null : _chatModel,
         providerId: _chatModel == 'biumind-default' ? null : _chatProviderId,
-        systemPrompt: _systemPromptCtrl.text.trim().isEmpty
-            ? null
-            : _systemPromptCtrl.text.trim(),
+        systemPrompt: styled.systemPrompt,
+        autoApprove: styled.autoApprove,
         projectId: widget.projectId,
         runtimeEnvMode: _runtimeEnvForMode(),
         backend: _mode == ThreadMode.agent ? _agentBackend : 'biumindkit',
+        workdir: workdir,
       );
+      if (workdir != null) {
+        ref.read(chatPreferencesProvider.notifier).setLastAgentWorkdir(workdir);
+      }
+      final runStyle = taskRunStyleName(planFirst: planFirst, mode: _mode);
+      final taskKind = normalizeTaskKind(_taskKind);
+      ref.read(taskKindMapProvider.notifier).remember(id, taskKind);
+      if (_mode != ThreadMode.chat) {
+        unawaited(Future<void>(() async {
+          try {
+            await ref.read(chatControllerDepsProvider).chatClient.postTaskMeta(
+                  id,
+                  runStyle: runStyle.isEmpty ? 'execute' : runStyle,
+                  kind: taskKind,
+                );
+          } catch (_) {}
+        }));
+      }
       // 记忆字段：systemPrompt + poolTag —— 下次打开 dialog 自动预填。
       // unawaited，不阻塞 pop。
       NewThreadMemoryStore.save(
@@ -272,7 +336,7 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
     final l = AppLocalizations.of(context)!;
     return Dialog(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 520),
+        constraints: const BoxConstraints(maxWidth: 640, maxHeight: 560),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -365,6 +429,18 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
                 : l.chatV2NewDialogTitleSuggested(_suggestedTitle()),
           ),
           const SizedBox(height: 12),
+          if (_mode != ThreadMode.chat) ...[
+            _RunStylePicker(
+              planFirst: _planFirst,
+              onChanged: (v) => setState(() => _planFirst = v),
+            ),
+            const SizedBox(height: 12),
+            TaskKindPicker(
+              kind: _taskKind,
+              onChanged: (v) => setState(() => _taskKind = v),
+            ),
+            const SizedBox(height: 12),
+          ],
           switch (_mode) {
             ThreadMode.chat => _ChatModePanel(
               selectedModel: _chatModel,
@@ -383,6 +459,8 @@ class _NewThreadDialogState extends ConsumerState<NewThreadDialog> {
               onBackendChanged: (b) => setState(() => _agentBackend = b),
               selectedRuntimeEnv: _agentRuntimeEnv,
               onRuntimeEnvChanged: (v) => setState(() => _agentRuntimeEnv = v),
+              onUseCloudTask: () => setState(() => _mode = ThreadMode.task),
+              workdirCtrl: _workdirCtrl,
             ),
             ThreadMode.task => _TaskModePanel(
               poolTagCtrl: _poolTagCtrl,
@@ -870,6 +948,8 @@ class _AgentModePanel extends ConsumerWidget {
     required this.onBackendChanged,
     required this.selectedRuntimeEnv,
     required this.onRuntimeEnvChanged,
+    this.onUseCloudTask,
+    required this.workdirCtrl,
   });
   final String? selectedEnvId;
   final ValueChanged<String> onEnvChanged;
@@ -881,6 +961,8 @@ class _AgentModePanel extends ConsumerWidget {
   final ValueChanged<String> onBackendChanged;
   final String selectedRuntimeEnv;
   final ValueChanged<String> onRuntimeEnvChanged;
+  final VoidCallback? onUseCloudTask;
+  final TextEditingController workdirCtrl;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -905,6 +987,8 @@ class _AgentModePanel extends ConsumerWidget {
           selected: selectedRuntimeEnv,
           onChanged: onRuntimeEnvChanged,
         ),
+        const SizedBox(height: 12),
+        _WorkdirField(controller: workdirCtrl),
         const SizedBox(height: 12),
         // 聊天区只支持 biu cli(biumindkit):隐藏外部 backend 选择器,backend
         // 恒默认 biumindkit。恢复见 kChatAllowExternalBackends。
@@ -939,7 +1023,10 @@ class _AgentModePanel extends ConsumerWidget {
                 )
                 .toList();
             if (agentCapable.isEmpty) {
-              return _EmptyEnvHint(allEnvs: envs);
+              return _EmptyEnvHint(
+                allEnvs: envs,
+                onUseCloudTask: onUseCloudTask,
+              );
             }
             // 默认 agent 模式下用户「不进行选择」即可创建:首个在线设备到位后
             // 自动选中(与 composer 模式切换的自动绑定行为一致)。仅在尚未选时
@@ -998,8 +1085,9 @@ class _AgentModePanel extends ConsumerWidget {
 }
 
 class _EmptyEnvHint extends StatelessWidget {
-  const _EmptyEnvHint({required this.allEnvs});
+  const _EmptyEnvHint({required this.allEnvs, this.onUseCloudTask});
   final List<AgentEnvironment> allEnvs;
+  final VoidCallback? onUseCloudTask;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -1023,6 +1111,13 @@ class _EmptyEnvHint extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
+          if (onUseCloudTask != null) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onUseCloudTask,
+              child: Text(l.taskSwitchCloud),
+            ),
+          ],
         ],
       ),
     );
@@ -1133,6 +1228,93 @@ class _TaskModePanel extends StatelessWidget {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
+      ],
+    );
+  }
+}
+
+class _RunStylePicker extends StatelessWidget {
+  const _RunStylePicker({required this.planFirst, required this.onChanged});
+  final bool planFirst;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SegmentedButton<bool>(
+          showSelectedIcon: false,
+          segments: [
+            ButtonSegment(
+              value: false,
+              label: Text(l.taskRunStyleExecute),
+            ),
+            ButtonSegment(
+              value: true,
+              label: Text(l.taskRunStylePlanFirst),
+            ),
+          ],
+          selected: {planFirst},
+          onSelectionChanged: (s) => onChanged(s.first),
+        ),
+        if (planFirst) ...[
+          const SizedBox(height: 6),
+          Text(
+            l.taskRunStylePlanFirstHint,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WorkdirField extends StatelessWidget {
+  const _WorkdirField({required this.controller});
+  final TextEditingController controller;
+
+  bool get _canPick => canPickComputerWorkdir(
+        isWeb: kIsWeb,
+        platform: defaultTargetPlatform,
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Label(l.chatV2NewDialogWorkdir),
+        if (_canPick)
+          Row(
+            children: [
+              Expanded(
+                child: BiuTextField(
+                  controller: controller,
+                  hintText: l.chatV2NewDialogWorkdirHint,
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () async {
+                  final picked = await getDirectoryPath();
+                  if (picked != null) controller.text = picked;
+                },
+                child: Text(l.chatV2ComposerWorkdirSet),
+              ),
+            ],
+          )
+        else
+          Text(
+            controller.text.isEmpty
+                ? l.taskWorkdirMissing
+                : controller.text,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
       ],
     );
   }

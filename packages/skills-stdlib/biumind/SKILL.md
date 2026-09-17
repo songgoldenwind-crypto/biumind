@@ -49,6 +49,7 @@ This skill is only the map. For real work, skill.activate the manual:
   graph          query the knowledge graph; extract nodes from content
   sandbox        create cloud workstations; run code at scale
   app-center     drive installed BiuApps (RSS / Email / Stock / PPT)
+  office-docs     PPT / 表格 / 研究报告 / 批量文件
   artifacts      produce user-facing files (exports, downloads)
   skill-creator  author a new skill when none of the above fits
 
@@ -57,6 +58,7 @@ This skill is only the map. For real work, skill.activate the manual:
 Work backward from the artefact the user wants:
 
   document / page      → wiki.* MCP tools (activate wiki first)
+  weekly report / ppt  → office-docs (write files; result pane picks them up)
   semantic recall      → memory.recall
   persist a fact       → memory.store (kind = recall | preference | habit)
   ad-hoc command       → bash

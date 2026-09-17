@@ -745,6 +745,7 @@ func (s *Server) createTaskSession(w http.ResponseWriter, r *http.Request, uid u
 // writeSessionCreated 是 3 个 mode 共用的成功响应写出。颁发 session_token +
 // 把 jetstream subject 给客户端（让它知道往哪 ingress）。
 func (s *Server) writeSessionCreated(w http.ResponseWriter, userID uuid.UUID, sess *Session) {
+	s.recordTaskStarted(context.Background(), userID, sess)
 	tok, expiresAt, err := IssueSessionToken(s.Signer, userID, sess.SessionID)
 	if err != nil {
 		s.serverErr(w, "issue session_token", err)

@@ -21,6 +21,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/local/db.dart';
 import '../domain/chat_models.dart';
+import '../domain/task_status.dart';
 import '../domain/thread_export_json.dart';
 
 class ChatRepo {
@@ -187,6 +188,12 @@ class ChatRepo {
         updatedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  /// 电脑离线时用户显式改云端任务：mode=task 且 runtimeEnvMode=cloud。
+  Future<void> switchToCloudTask(String id) async {
+    await setThreadMode(id, ThreadMode.task);
+    await setThreadRuntimeEnvMode(id, 'cloud');
   }
 
   /// 设置 agent loop backend（Runtime v3 R3/Q3）：'biumindkit' | 'claude-cli'
@@ -1172,6 +1179,7 @@ class ChatRepo {
     required DateTime createdAt,
     required DateTime updatedAt,
     required int remoteUpdatedAtUs,
+    String? lastTaskStatus,
   }) async {
     // scope 内查重：同 id 属于其他 scope 时视为不存在（id 是 uuid v4 /
     // ULID，跨 scope 碰撞实践中不发生）。
@@ -1192,6 +1200,7 @@ class ChatRepo {
             createdAt: createdAt,
             updatedAt: updatedAt,
             remoteUpdatedAtUs: Value(remoteUpdatedAtUs),
+            lastTaskStatus: Value(lastTaskStatus),
           ));
       return true;
     }
@@ -1208,7 +1217,8 @@ class ChatRepo {
         existing.model == nextModel &&
         existing.systemPrompt == nextPrompt &&
         existing.projectId == nextProject &&
-        existing.remoteUpdatedAtUs == remoteUpdatedAtUs;
+        existing.remoteUpdatedAtUs == remoteUpdatedAtUs &&
+        existing.lastTaskStatus == lastTaskStatus;
     if (unchanged) return false;
     await (db.update(db.chatThreadsV2)
           ..where((t) => t.id.equals(id) & t.ownerKey.equals(scope))).write(
@@ -1221,6 +1231,7 @@ class ChatRepo {
         projectId: Value(nextProject),
         updatedAt: Value(updatedAt),
         remoteUpdatedAtUs: Value(remoteUpdatedAtUs),
+        lastTaskStatus: Value(lastTaskStatus),
       ),
     );
     return true;
@@ -1445,6 +1456,7 @@ Thread _threadFromRow(LocalChatThreadV2 r) {
     archived: r.archived,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
+    lastTaskStatus: TaskStatus.tryParse(r.lastTaskStatus),
   );
 }
 

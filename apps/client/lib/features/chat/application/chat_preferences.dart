@@ -30,6 +30,7 @@ class ChatPreferences {
     this.localeOverride,
     this.ttsModel,
     this.ttsVoice,
+    this.lastAgentWorkdir,
   });
 
   final String? defaultModel;
@@ -57,6 +58,9 @@ class ChatPreferences {
   bool get cloudTtsConfigured =>
       (ttsModel?.isNotEmpty ?? false) && (ttsVoice?.isNotEmpty ?? false);
 
+  /// 上次成功授权的 agent 工作目录；手机一句话建任务会带上。
+  final String? lastAgentWorkdir;
+
   ChatPreferences copyWith({
     String? defaultModel,
     String? defaultProviderId,
@@ -65,9 +69,11 @@ class ChatPreferences {
     String? localeOverride,
     String? ttsModel,
     String? ttsVoice,
+    String? lastAgentWorkdir,
     bool clearDefaultModel = false,
     bool clearLocaleOverride = false,
     bool clearTts = false,
+    bool clearLastAgentWorkdir = false,
   }) {
     return ChatPreferences(
       defaultModel:
@@ -83,6 +89,9 @@ class ChatPreferences {
           : (localeOverride ?? this.localeOverride),
       ttsModel: clearTts ? null : (ttsModel ?? this.ttsModel),
       ttsVoice: clearTts ? null : (ttsVoice ?? this.ttsVoice),
+      lastAgentWorkdir: clearLastAgentWorkdir
+          ? null
+          : (lastAgentWorkdir ?? this.lastAgentWorkdir),
     );
   }
 
@@ -94,6 +103,7 @@ class ChatPreferences {
         'localeOverride': localeOverride,
         'ttsModel': ttsModel,
         'ttsVoice': ttsVoice,
+        'lastAgentWorkdir': lastAgentWorkdir,
       };
 
   static ChatPreferences fromJson(Map<String, dynamic> j) {
@@ -106,6 +116,7 @@ class ChatPreferences {
       localeOverride: j['localeOverride'] as String?,
       ttsModel: j['ttsModel'] as String?,
       ttsVoice: j['ttsVoice'] as String?,
+      lastAgentWorkdir: j['lastAgentWorkdir'] as String?,
     );
   }
 }
@@ -169,7 +180,15 @@ class ChatPreferencesNotifier extends StateNotifier<ChatPreferences> {
     await _persist(state);
   }
 
-  /// 设 UI 语言覆盖：'zh' / 'en' / null（跟随系统）。
+  /// 设上次成功授权的 agent 工作目录，给手机一句话 / 默认创建复用。
+  Future<void> setLastAgentWorkdir(String? path) async {
+    state = state.copyWith(
+      lastAgentWorkdir: path,
+      clearLastAgentWorkdir: path == null || path.isEmpty,
+    );
+    await _persist(state);
+  }
+
   Future<void> setLocaleOverride(String? code) async {
     state = state.copyWith(
       localeOverride: code,

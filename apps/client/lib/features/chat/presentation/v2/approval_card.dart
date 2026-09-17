@@ -23,6 +23,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../application/chat_controller.dart';
 import '../../data/biu_session_connection.dart';
 import '../../domain/chat_models.dart';
+import '../../domain/task_artifacts.dart';
 
 class ApprovalCardV2 extends ConsumerWidget {
   const ApprovalCardV2({super.key, required this.threadId});
@@ -37,6 +38,7 @@ class ApprovalCardV2 extends ConsumerWidget {
     final req = pending.first;
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context)!;
+    final writePath = approvalWritePathHeadline(req.toolName, req.input);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Material(
@@ -79,6 +81,15 @@ class ApprovalCardV2 extends ConsumerWidget {
                   req.reason!,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (writePath != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  l.taskApprovalWritePath(writePath),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

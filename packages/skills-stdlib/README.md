@@ -22,6 +22,8 @@ skills-stdlib/
 │   └── SKILL.md
 ├── artifacts/             user-facing file exports
 │   └── SKILL.md
+├── office-docs/           PPT / sheets / research / batch files
+│   └── SKILL.md
 └── skill-creator/         author new skills
     └── SKILL.md
 ```
@@ -30,7 +32,7 @@ skills-stdlib/
 
 `services/runtime/internal/skills/builtin.go` walks this tree at startup and upserts each skill into `runtime.skills` with `source='bundled', owner_id=NULL` (org-shared). Idempotent — re-running on a fresh DB or an existing one yields the same rows.
 
-All 8 skills are bundled; the loader ships with the runtime.
+All 9 skills are bundled; the loader ships with the runtime.
 
 ## Authoring
 

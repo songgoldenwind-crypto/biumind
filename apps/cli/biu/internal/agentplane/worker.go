@@ -814,6 +814,8 @@ func (w *Worker) handleWork(ctx context.Context, work *WorkItem) {
 	// goroutine 立刻 Cancelled 出局，不干等 askUserTimeout（防泄漏）。
 	defer w.cancelPendingAsks(payload.SessionID)
 
+	pendingWrites := map[string]string{}
+	var writeCands []string
 	for ev := range agent.Submit(ctx, payload.Prompt) {
 		// 在事件 → frame 翻译之前先检测 Done{interrupted}。这是 daemon-side
 		// cancel SLO 的「停下来了」信号:engine 已经走完 clean-stop(合成
@@ -822,6 +824,12 @@ func (w *Worker) handleWork(ctx context.Context, work *WorkItem) {
 		// 那段(那是 brain 端的事)。
 		if d, ok := ev.(biumindkit.Done); ok && d.StopReason == "interrupted" {
 			w.observeCancelLatency(payload.SessionID)
+		}
+		switch e := ev.(type) {
+		case biumindkit.ToolStart:
+			trackWriteStart(pendingWrites, e.Name, e.ID, e.Input, payload.Workdir)
+		case biumindkit.ToolResult:
+			writeCands = trackWriteResult(pendingWrites, writeCands, e.ID, e.IsError, payload.Workdir)
 		}
 		frame := sdkbridge.ToSDKFrame(ev, payload.SessionID.String())
 		if frame == nil {
@@ -837,7 +845,8 @@ func (w *Worker) handleWork(ctx context.Context, work *WorkItem) {
 		}
 	}
 	// Submit channel 关闭 = turn 结束（Done event 已经被 toSDKFrame 翻成
-	// SDKResultSuccess 推过去）—— ack
+	// SDKResultSuccess 推过去）—— 先尝试把主产物传到 Files，失败不影响 ack。
+	w.syncTaskArtifacts(ctx, payload, writeCands)
 	if err := w.client.AckWork(ctx, w.envID, work.AckToken); err != nil {
 		w.logger.Warn("ack work failed", "err", err)
 	}
@@ -893,7 +902,18 @@ func (w *Worker) runExternalBackend(ctx context.Context, work *WorkItem, payload
 		return
 	}
 	sid := payload.SessionID.String()
+	pendingWrites := map[string]string{}
+	var writeCands []string
 	for ev := range ch {
+		if ev.Tool != nil {
+			switch ev.Type {
+			case agentpkg.EventToolUse:
+				trackWriteStart(pendingWrites, ev.Tool.Name, ev.Tool.ID, ev.Tool.Input, workdir)
+			case agentpkg.EventToolResult:
+				writeCands = trackWriteResult(pendingWrites, writeCands, ev.Tool.ID,
+					ev.Tool.Error != "", workdir)
+			}
+		}
 		frame := externalEventToFrame(ev, sid)
 		if frame == nil {
 			continue
@@ -903,6 +923,9 @@ func (w *Worker) runExternalBackend(ctx context.Context, work *WorkItem, payload
 				"err", err, "session_id", payload.SessionID)
 		}
 	}
+	extPayload := payload
+	extPayload.Workdir = workdir
+	w.syncTaskArtifacts(ctx, extPayload, writeCands)
 	if err := w.client.AckWork(ctx, w.envID, work.AckToken); err != nil {
 		w.logger.Warn("ack work failed (external)", "err", err)
 	}

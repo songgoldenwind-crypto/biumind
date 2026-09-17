@@ -32,6 +32,7 @@ import '../../../data/wiki_providers.dart' show appDbProvider;
 import '../../../services/auth_service.dart';
 import '../data/chat_repo.dart';
 import '../data/chat_scope.dart';
+import '../application/task_kind_store.dart';
 import '../data/chat_sync.dart';
 import 'chat_events_realtime.dart';
 
@@ -174,6 +175,12 @@ final chatSyncServiceProvider = Provider<ChatSyncService?>((ref) {
     repo: ChatRepo(db, scope: scope),
     baseUrl: base.endsWith('/') ? base.substring(0, base.length - 1) : base,
     tokenProvider: () async => ref.read(hubCredentialsProvider)?.bearerToken,
+    onRemoteTask: (id, task) {
+      ref.read(taskKindMapProvider.notifier).remember(
+            id,
+            task?['kind'] as String?,
+          );
+    },
   );
 });
 

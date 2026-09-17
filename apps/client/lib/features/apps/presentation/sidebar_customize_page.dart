@@ -20,6 +20,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme.dart';
 import '../../../core/layout/phone_nav.dart';
+import '../../../core/layout/primary_nav.dart';
 import '../../../data/api/apps_client.dart';
 import '../../../data/api/sidebar_client.dart';
 import '../../../data/apps_providers.dart';
@@ -53,17 +54,10 @@ class _SidebarCustomizePageState extends ConsumerState<SidebarCustomizePage> {
     });
   }
 
-  /// System entries the user can toggle (matches router._systemItems).
-  static const _systemDefaults = [
-    ('chat', 'Chat'),
-    ('search', '搜索'),
-    ('wiki', 'Wiki'),
-    ('notes', '笔记'),
-    // ('memory', 'Memory'), // TODO(memory): 后端未完全实现, 先下线, 恢复见 router.dart 顶部说明
-    ('skills', 'Skills'),
-    ('apps', 'App Center'),
-    ('code', 'Code'),
-  ];
+  /// System entries the user can toggle (matches kPrimaryNav / router).
+  static List<(String, String)> get _systemDefaults => [
+        for (final d in kPrimaryNav) (d.id, d.id),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +295,6 @@ class _Editor extends StatelessWidget {
     AppLocalizations l10n,
   ) {
     final defaults = _SidebarCustomizePageState._systemDefaults;
-    final labelById = {for (final (id, label) in defaults) id: label};
 
     // 计算"完整 system 序列"。
     final orderedIds = <String>[];
@@ -325,7 +318,7 @@ class _Editor extends StatelessWidget {
       itemCount: orderedIds.length,
       itemBuilder: (ctx, i) {
         final id = orderedIds[i];
-        final label = labelById[id] ?? id;
+        final label = primaryNavLabel(l10n, id);
         final hidden = hiddenSystem.contains(id);
         return ListTile(
           key: ValueKey('sys-$id'),

@@ -42,6 +42,8 @@ type WorkPayload struct {
 	SystemPrompt string    `json:"system_prompt,omitempty"`
 	ThreadID     string    `json:"thread_id,omitempty"`
 	PoolTag      string    `json:"pool_tag,omitempty"`
+	Workdir      string    `json:"workdir,omitempty"`
+	UserBearer   string    `json:"user_bearer,omitempty"`
 }
 
 // APIError 是 4xx / 5xx HTTP 的封装。worker poll loop 用它判断是否是

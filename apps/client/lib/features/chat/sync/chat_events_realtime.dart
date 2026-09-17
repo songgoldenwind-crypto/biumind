@@ -18,8 +18,9 @@
 //     后 ChatSyncService.syncThread（一轮 turn 两条事件合并成一次拉取）。
 //   * chat.thread_deleted → 直接本地 repo.deleteThreads（不走 syncThread）。
 //   * onDesync (4009) → 清 cursor + 全量 syncThreads()。
-//   * 未知 kind 忽略；旧服务端没有 chat 事件时 stream 只是安静 —— 整个
-//     listener 退化为纯 hydrate，不报错。
+//   * chat.task_attention / chat.task_completed / chat.task_failed →
+//     更新任务活动叠加（手机列表「等你 / 完成」角标）并 syncThread。
+//     用户点进任务时 ChatController.build 走既有 resume，接到同一会话。
 //
 // Mirrors features/apps/sync/sidebar_events_realtime.dart in shape and
 // lifecycle (started by ChatSyncManager once creds exist, stopped on
@@ -36,6 +37,7 @@ import '../../../data/sse/realtime_hub.dart';
 import '../../../data/sse/sse_cursors_dao.dart';
 import '../../../data/wiki_providers.dart' show appDbProvider;
 import '../../../services/auth_service.dart';
+import '../application/task_activity.dart';
 import '../data/chat_scope.dart' show accountIdFromEndpoint;
 import '../data/chat_sync.dart';
 
@@ -147,6 +149,17 @@ class ChatEventsListener {
         final tid = inner['thread_id']?.toString();
         if (tid == null || tid.isEmpty) return;
         _scheduleThreadSync(tid);
+      case 'chat.task_attention':
+      case 'chat.task_completed':
+      case 'chat.task_failed':
+      case 'chat.task_started':
+        final inner =
+            (frame.payload['data'] as Map?)?.cast<String, dynamic>() ??
+            frame.payload;
+        final tid = inner['thread_id']?.toString();
+        if (tid == null || tid.isEmpty) return;
+        _applyTaskEvent(frame.kind, tid, toolName: inner['tool_name']?.toString());
+        _scheduleThreadSync(tid);
       case 'chat.thread_deleted':
         // 他端删了会话 —— 直接本地级联删, 不走 syncThread(服务端已无此
         // thread, 拉取只会 404)。Drift stream 会自动刷新 UI; 若删的是
@@ -180,6 +193,20 @@ class ChatEventsListener {
       default:
         // 未知 kind 忽略 —— 前向兼容（服务端后续加新事件类型不崩）。
         break;
+    }
+  }
+
+  void _applyTaskEvent(String kind, String threadId, {String? toolName}) {
+    final n = _ref.read(taskActivityProvider.notifier);
+    switch (kind) {
+      case 'chat.task_started':
+        n.markRunning(threadId);
+      case 'chat.task_attention':
+        n.markAwaiting(threadId, toolName: toolName);
+      case 'chat.task_completed':
+        n.markCompleted(threadId);
+      case 'chat.task_failed':
+        n.markFailed(threadId);
     }
   }
 

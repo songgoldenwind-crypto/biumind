@@ -7,6 +7,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'task_status.dart';
+
 /// Thread mode：跟 brain agent_plane router.go 三态对齐。
 enum ThreadMode {
   chat,
@@ -159,6 +161,8 @@ class Thread {
   final bool archived;
   final DateTime createdAt;
   final DateTime updatedAt;
+  /// 服务端 metadata.task.status 的本地镜像；overlay 未命中时列表芯片用它。
+  final TaskStatus? lastTaskStatus;
 
   Thread({
     required this.id,
@@ -178,6 +182,7 @@ class Thread {
     this.archived = false,
     required this.createdAt,
     required this.updatedAt,
+    this.lastTaskStatus,
   });
 }
 

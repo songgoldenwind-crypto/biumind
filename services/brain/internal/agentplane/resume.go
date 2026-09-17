@@ -225,6 +225,7 @@ func (s *Server) handleResumeSession(w http.ResponseWriter, r *http.Request) {
 		history = append(history, ChatTurn{Role: p.Role, Content: p.Content})
 	}
 	sess.State = "active" // CAS 已翻牌,内存副本同步给 runner 日志用
+	s.recordTaskStarted(ctx, uid, sess)
 	s.ChatRunner.RunSession(detachedCtx(ctx), sess, WorkPayload{
 		SessionID:    sessionID,
 		UserID:       uid,

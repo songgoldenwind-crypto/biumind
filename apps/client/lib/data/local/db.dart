@@ -443,6 +443,9 @@ class ChatThreadsV2 extends Table {
   /// 无法区分同一秒内的多次服务端更新(user/assistant 同秒落库),故另存
   /// 此列。null = 本机产生、从未从服务端同步过的会话。
   IntColumn get remoteUpdatedAtUs => integer().nullable()();
+  /// 服务端 metadata.task.status 镜像（queued/running/awaiting/completed/failed）。
+  /// overlay 未命中时列表芯片用它。null = 从未同步过任务状态。
+  TextColumn get lastTaskStatus => text().nullable()();
   /// P0 数据隔离（docs/BiuMind-Local-Data-Isolation-Design.md §2）：scope 列 =
   /// sha256(normalize(identityUrl)) + ":" + JWT sub，「环境 × 账号」复合键。
   /// 所有查询强制按此列过滤；'' 为非法值（查询永不匹配，写入必填当前 scope）。
@@ -660,7 +663,7 @@ class AppDb extends _$AppDb {
   factory AppDb.memory() => AppDb.executor(opener.memoryExecutor());
 
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -937,6 +940,14 @@ class AppDb extends _$AppDb {
             if (from >= 10) {
               await m.addColumn(
                   chatContentBlocks, chatContentBlocks.formPayloadJson);
+            }
+          }
+          if (from < 38) {
+            // Phase 38: 任务工作台 last_task_status —— 镜像 brain
+            // metadata.task.status，杀 App 后列表芯片仍可用。
+            if (from >= 10) {
+              await m.addColumn(
+                  chatThreadsV2, chatThreadsV2.lastTaskStatus);
             }
           }
         },
